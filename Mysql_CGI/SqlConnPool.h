@@ -17,7 +17,7 @@ private:
 
 public:
 	static SqlConnPool* get_instance();		// 获取唯一实例
-	void init(string url, short port, string user, string passwd, string database);
+	void init(string url, short port, string user, string passwd, string dbname);
 	void destroy();							// 销毁连接池
 
 	MYSQL* get_connection();				// 获取连接
@@ -37,7 +37,7 @@ private:
 	short _port;		// 数据库 端口号
 	string _user;		// 数据库 用户名
 	string _passwd;		// 数据库 密码
-	string _database;	// 使用的数据库名
+	string _dbname;	// 使用的数据库名
 };
 
 #endif

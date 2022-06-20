@@ -3,14 +3,22 @@
 
 #include <string>
 
-short port = 9006;
+using std::string;
 
-std::string mysql_name = "root";
+namespace config {
 
-std::string mysql_passwd = "123456";
+	// 服务器ip及端口
+	string url = "127.0.0.1";
+	short port = 9006;
 
-std::string mysql_database = "mywebserver";
+	// 数据库连接池
+	string mysql_name = "root";
+	string mysql_passwd = "123456";
+	string mysql_dbname = "mywebserver";
 
-int listen_trig_mode = 0;
+	// 线程池
+	int thread_num = 5;
+	int max_task_num = 10;
+}
 
 #endif

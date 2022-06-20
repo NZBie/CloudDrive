@@ -14,13 +14,13 @@ SqlConnPool* SqlConnPool::get_instance() {
 	return &connPool;
 }
 
-void SqlConnPool::init(string url, short port, string user, string passwd, string database) {
+void SqlConnPool::init(string url, short port, string user, string passwd, string dbname) {
 
 	_url = url;
 	_port = port;
 	_user = user;
 	_passwd = passwd;
-	_database = database;
+	_dbname = dbname;
 	
 	for(int i=0;i<_max_conn_num;++i) {
 
@@ -34,7 +34,7 @@ void SqlConnPool::init(string url, short port, string user, string passwd, strin
 		}
 
 		// 连接数据库
-		conn = mysql_real_connect(conn, _url.c_str(), user.c_str(), passwd.c_str(), database.c_str(), port, NULL, 0);
+		conn = mysql_real_connect(conn, _url.c_str(), user.c_str(), passwd.c_str(), dbname.c_str(), port, NULL, 0);
 		if(conn == nullptr) {
 			printf("MySQL connect error");
 			exit(1);
@@ -42,7 +42,7 @@ void SqlConnPool::init(string url, short port, string user, string passwd, strin
 
 		// 加入连接池
 		_conn_list.push_back(conn);
-		++_conn_free;
+		_conn_free++;
 	}
 
 	// 统计连接池的容量 & 信号量
@@ -85,8 +85,8 @@ MYSQL* SqlConnPool::get_connection() {
 	_conn_list.pop_front();
 
 	// 更新连接池信息
-	--_conn_free;
-	++_conn_num;
+	_conn_free--;
+	_conn_num++;
 
 	// 解锁
 	_conn_locker.unlock();
@@ -101,8 +101,8 @@ bool SqlConnPool::release_connection(MYSQL* conn) {
 
 	// 放回连接池
 	_conn_list.push_back(conn);
-	++_conn_free;
-	--_conn_num;
+	_conn_free++;
+	_conn_num--;
 
 	_conn_locker.unlock();
 	_conn_semaphore.post();

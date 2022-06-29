@@ -4,8 +4,8 @@
 #include <list>
 #include <assert.h>
 #include <exception>
+#include <cstdio>
 
-// #include "../Http/HttpConn.h"
 #include "../Locker/Locker.h"
 
 template<typename T>
@@ -107,15 +107,17 @@ void ThreadPool<T>::run() {
 		_queue_locker.unlock();
 		if(task == nullptr) continue;
 
+		printf("complete_process start.\n");
+
 		// 处理请求报文
 		if(task->_state == 0) {
 			task->complete_process();		
 		}
 
 		// 处理响应报文
-		else {
-			task->complete_process();
-		}
+		// else {
+		// 	task->complete_process();
+		// }
 	}
 }
 

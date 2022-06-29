@@ -8,13 +8,14 @@ using std::string;
 namespace config {
 
 	// 服务器ip及端口
-	string url = "127.0.0.1";
+	string url = "localhost";
 	short port = 9006;
 
 	// 数据库连接池
 	string mysql_name = "root";
 	string mysql_passwd = "123456";
 	string mysql_dbname = "mywebserver";
+	int max_conn_num = 3;
 
 	// 线程池
 	int thread_num = 5;

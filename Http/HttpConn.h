@@ -6,14 +6,18 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <errno.h>
 #include <cstdio>
 #include <cstdarg>
 
+#include <sys/mman.h>
 #include <cstring>
 #include <string>
 #include <set>
+
+#include "../log/log.h"
 
 using std::string;
 
@@ -57,6 +61,13 @@ public:
 		LINE_BAD,		// 当前行 语法错误
 		LINE_OPEN		// 当前行 未读取完整
 	};
+	class HTTP_MESSAGE {
+	public:
+		int code;
+		char* title;
+		char* form;
+	};
+	static const HTTP_MESSAGE http_messages[10];
 
 public:
 	HttpConn();
@@ -117,13 +128,23 @@ private:
 	struct stat _file_stat;
 
 	bool _linger;
-};
 
-class HTTP_MESSAGE {
-public:
-	int code;
-	char* title;
-	char* form;
+	char _real_file[FILENAME_LEN];
+
+	// 数据库
+	char sql_user[32];
+	char sql_passwd[32];
+	char sql_dbname[32];
+
+	// 请求报文的信息
+	METHOD _method;
+	char* _version;
+	int _content_length;
+	char* _host;
+	char* _string;
+	char* _root;
+	// char* _real_file;
+	char* _url;
 };
 
 #endif

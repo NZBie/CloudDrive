@@ -5,7 +5,6 @@ Reactor::Reactor() {
 	// root文件夹路径
 	char server_path[256];
 	getcwd(server_path, sizeof(server_path));
-	printf("(%d)", (int)sizeof(server_path));
 	char root[6] = "/root";
 	_root_path = new char[strlen(server_path) + strlen(root) + 1];
 	strcpy(_root_path, server_path);
@@ -20,13 +19,34 @@ Reactor::~Reactor() {
 	delete _thread_pool;
 }
 
-// 初始化
+// 初始化 反应堆
 void Reactor::init(
 	int thread_num, int max_task_num,
-	string url, short port, string user, string passwd, string dbname) {
+	short port, 
+	string user, string passwd, string dbname, 
+	int max_conn_num) {
+
+	_port = port;
+	sql_user = user;
+	sql_passwd = passwd;
+	sql_dbname = dbname;
 	
+	init_log();
 	init_thread_pool(thread_num, max_task_num);
-	init_sql_conn_pool(url, port, user, passwd, dbname);
+	init_sql_conn_pool(3306, user, passwd, dbname, max_conn_num);
+}
+
+// 初始化 日志
+void Reactor::init_log()
+{
+    // if (_close_log == false)
+    // {
+        //初始化日志
+        // if (1 == m_log_write)
+            Log::get_instance()->init("./ServerLog", false, 2000, 800000, 800);
+        // else
+        //     Log::get_instance()->init("./ServerLog", m_close_log, 2000, 800000, 0);
+    // }
 }
 
 // 初始化 线程池
@@ -35,17 +55,17 @@ void Reactor::init_thread_pool(int thread_num, int max_task_num) {
 }
 
 // 初始化 数据库连接池
-void Reactor::init_sql_conn_pool(string url, short port, string user, string passwd, string dbname) {
+void Reactor::init_sql_conn_pool(short port, string user, string passwd, string dbname, int max_conn_num) {
 
 	_conn_pool = SqlConnPool::get_instance();
-	_conn_pool->init(url, port, user, passwd, dbname);
+	_conn_pool->init("localhost", port, user, passwd, dbname, max_conn_num);
 }
 
 // 开启监听socket
 void Reactor::event_listen() {
 	
 	// 创建listen的socket
-	_listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+	_listen_fd = socket(PF_INET, SOCK_STREAM, 0);
 	assert(_listen_fd >= 0);
 
 	// 设置关闭连接方式
@@ -59,7 +79,7 @@ void Reactor::event_listen() {
 	address.sin_addr.s_addr = htonl(INADDR_ANY);
 	address.sin_port = htons(_port);
 
-	// 防止重启服务器，bind失败
+	// 防止重启服务器后bind失败
 	int flag = 1;
     setsockopt(_listen_fd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag));
 
@@ -67,30 +87,46 @@ void Reactor::event_listen() {
 	int ret;
 	ret = bind(_listen_fd, (sockaddr*)&address, sizeof(address));
 	assert(ret >= 0);
-	ret = listen(_listen_fd, 30);
+	ret = listen(_listen_fd, 5);
 	assert(ret >= 0);
 
 	// 创建epoll
 	_epoll_fd = epoll_create(5);
 	assert(_epoll_fd != -1);
 
+	// 在内核事件表注册读事件
+	epoll_event event;
+	event.data.fd = _listen_fd;
+	event.events = EPOLLIN | EPOLLRDHUP | EPOLLET;
+	epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _listen_fd, &event);
+
+	// 设置文件描述符为非阻塞
+    int old_option = fcntl(_listen_fd, F_GETFL);
+    int new_option = old_option | O_NONBLOCK;
+    fcntl(_listen_fd, F_SETFL, new_option);
+
 	// 设置HttpConn的_epoll_fd;
+	HttpConn::_epoll_fd = _epoll_fd;
 }
 
 // 主事件循环体
 void Reactor::event_loop() {
 
 	bool server_close = false;
-	bool timeout = false;
+	// bool timeout = false;
 
 	while(server_close == false) {
+
+		printf("%s\n", "epoll start wait...");
 
 		// epoll等待事件
 		int event_num = epoll_wait(_epoll_fd, _events, MAX_EVENT_NUM, -1);
 		if(event_num < 0 && errno != EINTR) {
-			printf("epoll failure!\n");
+			LOG_INFO("epoll failure!");
 			break;
 		}
+
+		printf("there are %d events.\n", event_num);
 
 		for(int i = 0; i < event_num; ++i) {
 
@@ -136,15 +172,19 @@ bool Reactor::deal_client_connect() {
 		int conn_fd = accept(_listen_fd, (sockaddr *)&client_address, &client_address_len);
 		// 连接失败
 		if(conn_fd  < 0) {
-			printf("accept error");
-			break;
+			LOG_INFO("accept error");
+			return false;
 		}
 		// 服务器连接客户端达到上限
 		if(HttpConn::_user_count >= MAX_FD_NUM) {
-			printf("Server busy");
+			LOG_INFO("Server busy");
 			return false;
 		}
+
+		_users[conn_fd].init(conn_fd, client_address, _root_path, sql_user, sql_passwd, sql_dbname);
 	}
+
+	LOG_INFO("accept successful");
 	return true;
 }
 

@@ -14,15 +14,16 @@ SqlConnPool* SqlConnPool::get_instance() {
 	return &connPool;
 }
 
-void SqlConnPool::init(string url, short port, string user, string passwd, string dbname) {
+void SqlConnPool::init(string url, short port, string user, string passwd, string dbname, int max_conn_num) {
 
 	_url = url;
 	_port = port;
 	_user = user;
 	_passwd = passwd;
 	_dbname = dbname;
+	// printf("%s, %d, %s, %s, %s\n", url.c_str(), port, user.c_str(), passwd.c_str(), dbname.c_str());
 	
-	for(int i=0;i<_max_conn_num;++i) {
+	for(int i=0;i<max_conn_num;++i) {
 
 		MYSQL* conn = nullptr;
 

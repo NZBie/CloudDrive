@@ -3,11 +3,15 @@
 
 using namespace config;
 
-int main() {
+int main(int argc, char *argv[]) {
 	
 	Reactor reactor;
-	reactor.init(thread_num, max_task_num, url, port, mysql_name, mysql_passwd, mysql_dbname);
-
+	reactor.init(
+		thread_num, max_task_num, 
+		port, 
+		mysql_name, mysql_passwd, mysql_dbname, 
+		max_conn_num
+	);
 	reactor.event_listen();
 	reactor.event_loop();
 }

@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 
 #include <cstdio>
@@ -17,8 +18,8 @@
 
 using std::string;
 
-const int MAX_EVENT_NUM = 1000;
-const int MAX_FD_NUM = 1024;
+const int MAX_FD_NUM = 2048;
+const int MAX_EVENT_NUM = 1024;
 
 class Reactor {
 public:

@@ -70,20 +70,21 @@ public:
 	static const HTTP_MESSAGE http_messages[10];
 
 public:
-	HttpConn();
-	~HttpConn();
+	HttpConn() {};
+	~HttpConn() {};
 
 	void init(int client_fd, sockaddr_in& address, char* root, string user, string passwd, string dbname);
-	void complete_process();	// 从读取到写回，完成的流程
+	void complete_process();	// 解析 & 处理 & 反馈 的过程
+
+	// socket ~ buffer
+	bool read_request();		// 将请求 从socket 读取至 缓存
+	bool write_response();		// 将响应 从缓存 写回到 socket
 
 private:
 	void init();
 	void close_connection();
 	void event_modify(int epoll_fd, int client_fd, int event);
 
-	// socket ~ buffer
-	bool read_request();		// 将请求 从socket 读取至 缓存
-	bool write_response();		// 将响应 从缓存 写回到 socket
 	bool write_single_buffer(char* buf, int len);
 
 	// 获取 & 解析 报文
@@ -143,7 +144,6 @@ private:
 	char* _host;
 	char* _string;
 	char* _root;
-	// char* _real_file;
 	char* _url;
 };
 

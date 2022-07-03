@@ -5,7 +5,7 @@ Reactor::Reactor() {
 	// root文件夹路径
 	char server_path[256];
 	getcwd(server_path, sizeof(server_path));
-	char root[6] = "/root";
+	char root[32] = "/root/CloudDrive/dist";
 	_root_path = new char[strlen(server_path) + strlen(root) + 1];
 	strcpy(_root_path, server_path);
 	strcat(_root_path, root);
@@ -117,7 +117,7 @@ void Reactor::event_loop() {
 
 	while(server_close == false) {
 
-		printf("%s\n", "epoll start wait...");
+		// printf("%s\n", "epoll start wait...");
 
 		// epoll等待事件
 		int event_num = epoll_wait(_epoll_fd, _events, MAX_EVENT_NUM, -1);
@@ -126,7 +126,7 @@ void Reactor::event_loop() {
 			break;
 		}
 
-		printf("there are %d events.\n", event_num);
+		// printf("there are %d events.\n", event_num);
 
 		for(int i = 0; i < event_num; ++i) {
 
@@ -134,7 +134,7 @@ void Reactor::event_loop() {
 
 			// 接收到 新的客户端连接
 			if(sock_fd == _listen_fd) {
-				if(deal_client_connect() == false) continue;
+				deal_client_connect();
 			}
 
 			// 接收到 关闭服务器的信号
@@ -164,16 +164,15 @@ void Reactor::event_loop() {
 bool Reactor::deal_client_connect() {
 
 	sockaddr_in client_address;
-	socklen_t client_address_len = sizeof(client_address);
+	socklen_t address_len = sizeof(client_address);
 
 	// ET边缘触发，一次性循环处理
 	while(true) {
 
-		int conn_fd = accept(_listen_fd, (sockaddr *)&client_address, &client_address_len);
+		int client_fd = accept(_listen_fd, (sockaddr *)&client_address, &address_len);
 		// 连接失败
-		if(conn_fd  < 0) {
-			LOG_INFO("accept error");
-			return false;
+		if(client_fd  < 0) {
+			break;
 		}
 		// 服务器连接客户端达到上限
 		if(HttpConn::_user_count >= MAX_FD_NUM) {
@@ -181,10 +180,10 @@ bool Reactor::deal_client_connect() {
 			return false;
 		}
 
-		_users[conn_fd].init(conn_fd, client_address, _root_path, sql_user, sql_passwd, sql_dbname);
+		_users[client_fd].init(client_fd, client_address, _root_path, sql_user, sql_passwd, sql_dbname);
+		LOG_INFO("Accept successful ip: %s", inet_ntoa(client_address.sin_addr));
 	}
 
-	LOG_INFO("accept successful");
 	return true;
 }
 
@@ -193,6 +192,7 @@ void Reactor::deal_client_read(int client_fd) {
 
 	// 检测到读事件，放入请求队列
 	_thread_pool->append(_users + client_fd, 0);
+	// printf("count: %d\n", HttpConn::count);
 }
 
 // 处理 来自服务器 的写事件

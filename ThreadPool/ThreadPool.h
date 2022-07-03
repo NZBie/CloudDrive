@@ -106,18 +106,15 @@ void ThreadPool<T>::run() {
 		_task_queue.pop_front();
 		_queue_locker.unlock();
 		if(task == nullptr) continue;
-
-		printf("complete_process start.\n");
-
+		
 		// 处理请求报文
 		if(task->_state == 0) {
+			task->read_request();
 			task->complete_process();		
 		}
-
-		// 处理响应报文
-		// else {
-		// 	task->complete_process();
-		// }
+		else {
+			task->write_response();
+		}
 	}
 }
 

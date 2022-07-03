@@ -18,8 +18,8 @@ namespace config {
 	int max_conn_num = 3;
 
 	// 线程池
-	int thread_num = 5;
-	int max_task_num = 10;
+	int thread_num = 8;
+	int max_task_num = 10000;
 }
 
 #endif

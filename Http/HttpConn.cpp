@@ -4,22 +4,17 @@ int HttpConn::_user_count = 0;
 int HttpConn::_epoll_fd = -1;
 
 const HttpConn::HTTP_MESSAGE HttpConn::http_messages[10] = {
-	{200, "OK", ""},
+	{},
+	{},
 	{400, "Bad Request", "Your request has bad syntax or is inherently impossible to staisfy.\n"},
-	{403, "Forbidden", "You do not have permission to get file form this server.\n"},
 	{404, "Not Found", "The requested file was not found on this server.\n"},
+	{403, "Forbidden", "You do not have permission to get file form this server.\n"},
+	{200, "OK", ""},
 	{500, "Internal Error", "There was an unusual problem serving the request file.\n"},
+	{}
 };
 
-HttpConn::HttpConn() {
-
-}
-
-HttpConn::~HttpConn() {
-	
-}
-
-// ?
+// 修改client_fd在内核事件表的监听事件
 void HttpConn::event_modify(int epoll_fd, int client_fd, int e) {
 
 	epoll_event event;
@@ -47,8 +42,6 @@ void HttpConn::init(int client_fd, sockaddr_in& address, char* root, string user
     int new_option = old_option | O_NONBLOCK;
     fcntl(_client_fd, F_SETFL, new_option);
 
-	_user_count++;
-
 	strcpy(sql_user, user.c_str());
 	strcpy(sql_passwd, passwd.c_str());
 	strcpy(sql_dbname, dbname.c_str());
@@ -66,10 +59,14 @@ void HttpConn::init() {
 	_write_len = 0;
 	_file_address = nullptr;
 
+	_url = nullptr;
+
+	_line_end = 0;
+	_line_begin = 0;
+
 	memset(_read_buf, 0, READ_BUFFER_SIZE);
 	memset(_write_buf, 0, WRITE_BUFFER_SIZE);
 	memset(_real_file, 0, FILENAME_LEN);
-	
 }
 
 // 断开和客户端的连接
@@ -77,8 +74,8 @@ void HttpConn::close_connection() {
 
 	if(_client_fd != -1) {
 
-		LOG_INFO("close %d\n", _client_fd);
-
+		LOG_INFO("Close Connection: %s", _address);
+		
 		// 从内核事件表删除_client_fd
 		epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, _client_fd, 0);
 		close(_client_fd);
@@ -88,10 +85,8 @@ void HttpConn::close_connection() {
 	}
 }
 
-// http从读到写的过程
+// http 解析 & 处理 & 反馈 的过程
 void HttpConn::complete_process() {
-
-	read_request();
 
 	// 解析报文
 	HTTP_CODE read_ret = parse_message();
@@ -111,8 +106,7 @@ void HttpConn::complete_process() {
 		return;
 	}
 	
-	// event_modify(_epoll_fd, _client_fd, EPOLLOUT);
-	write_response();
+	event_modify(_epoll_fd, _client_fd, EPOLLOUT);
 }
 
 // 将请求 从socket 读取至 缓存
@@ -133,13 +127,13 @@ bool HttpConn::read_request() {
 
 		_read_len += tmp;
 	}
+
+	LOG_INFO("Request message received: \n%s", _read_buf);
 	return true;
 }
 
 // 读取并解析 缓存中 客户端发送的请求
 HttpConn::HTTP_CODE HttpConn::parse_message() {
-	
-	printf("接收报文：\n%s\n\n", _read_buf);
 
 	LINE_STATE line_state = LINE_OK;
 	HTTP_CODE ret = NO_REQUEST;
@@ -233,7 +227,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_line(char* text) {
 	*_version++ = '\0';
 	_version += strspn(_version, " \t");
 
-	if(strcmp(_version, "HTTP/1.1") != 0) return BAD_REQUEST;
+	if(strcmp(_version, "HTTP/1.1") != 0 && strcmp(_version, "HTTP/1.0") != 0) return BAD_REQUEST;
 
 	// 解析url
 	if(strncmp(tmp, "http://", 7) == 0) {
@@ -245,7 +239,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_line(char* text) {
 		tmp = strchr(tmp, '/');
 	}
 
-	if(!tmp || tmp[0] != '/') return BAD_REQUEST;
+	if(tmp == nullptr || tmp[0] != '/') return BAD_REQUEST;
 	if(strlen(tmp) == 1) strcat(tmp, "index.html");
 	_url = tmp;
 
@@ -287,7 +281,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_headers(char* text) {
     }
     else
     {
-        LOG_INFO("oop!unknow header: %s", text);
+        // LOG_INFO("oop!unknow header: %s", text);
     }
     return NO_REQUEST;
 }
@@ -312,7 +306,6 @@ bool HttpConn::add_message(HTTP_CODE ret) {
 	// 文件请求
 	if(ret == FILE_REQUEST && _file_stat.st_size != 0) {
 		add_response_headers(_file_stat.st_size);
-		return true;
 	}
 
 	// 非文件请求 & 请求失败
@@ -376,7 +369,7 @@ HttpConn::HTTP_CODE HttpConn::do_request() {
 	// 直接访问_url对应的html文件
 	else strncpy(_real_file + len, _url, FILENAME_LEN - len - 1);
 
-	// ?
+	// 从_file_stat中获取文件信息
 	if(stat(_real_file, &_file_stat) < 0) return NO_RESOURCE;
     if(!(_file_stat.st_mode & S_IROTH)) return FORBIDDEN_REQUEST;
     if(S_ISDIR(_file_stat.st_mode)) return BAD_REQUEST;
@@ -397,6 +390,11 @@ bool HttpConn::write_response() {
 		return true;
 	}
 
+	// if(_file_address) {
+	// 	strcat(_write_buf, _file_address);
+	// 	_write_len += _file_stat.st_size;
+	// }
+
 	// 发送报文头和报文主体
 	bool ret = true;
 	ret &= write_single_buffer(_write_buf, _write_len);
@@ -405,6 +403,8 @@ bool HttpConn::write_response() {
 		munmap(_file_address, _file_stat.st_size);
 		_file_address = nullptr;
 	}
+
+	event_modify(_epoll_fd, _client_fd, EPOLLIN);
 	if(ret == true) init();
 	return ret;
 }
@@ -421,17 +421,18 @@ bool HttpConn::write_single_buffer(char* buf, int len) {
 
 			// 缓存池繁忙，重试
 			if(errno == EAGAIN) {
-				// event_modify(_epoll_fd, _client_fd, EPOLLOUT);
+				event_modify(_epoll_fd, _client_fd, EPOLLOUT);
 				usleep(1000);
 				continue;
 			}
-
 			// 出错
 			else return false;
 		}
 
+		// 发送成功
 		bytes_sent += tmp;
 		if(bytes_sent >= len) {
+			// printf("发送报文：\n%s\n\n", buf);
 			return true;
 		}
 	}

@@ -17,9 +17,14 @@
 #include <string>
 #include <set>
 
+#include <jsoncpp/json/json.h>
+
 #include "../log/log.h"
+#include "../MySQL_CGI/SqlConnPool.h"
+#include "../BLL/BLL.h"
 
 using std::string;
+using Json::Value;
 
 class HttpConn {
 public:
@@ -48,11 +53,12 @@ public:
 	{
 		NO_REQUEST = 0,		// 无需响应的请求
 		GET_REQUEST,		// 解析完成
-		BAD_REQUEST,		// 解析失败
-		NO_RESOURCE,
-		FORBIDDEN_REQUEST,
-		FILE_REQUEST,
-		INTERNAL_ERROR,		// 服务器出错
+
+		OK_REQUEST,			// 请求成功		200
+		BAD_REQUEST,		// 请求失败		400
+		FORBIDDEN_REQUEST,	// 拒绝访问		403
+		NO_RESOURCE,		// 未找到资源	404
+		INTERNAL_ERROR,		// 服务器出错	500
 		CLOSED_CONNECTION
 	};
 	enum LINE_STATE
@@ -70,7 +76,7 @@ public:
 	static const HTTP_MESSAGE http_messages[10];
 
 public:
-	HttpConn() {};
+	HttpConn() {map_bll_init();};
 	~HttpConn() {};
 
 	void init(int client_fd, sockaddr_in& address, char* root, string user, string passwd, string dbname);
@@ -97,7 +103,7 @@ private:
 	// 写报文
 	bool add_message(HTTP_CODE ret);
     inline bool add_response_line(int status, const char* title);
-    inline bool add_response_headers(int content_length);
+    inline bool add_response_headers(int content_len);
 	inline bool add_response_content(const char* content);
 	bool add_single_line(const char* format, ...);
 
@@ -128,10 +134,6 @@ private:
 	char* _file_address;
 	struct stat _file_stat;
 
-	bool _linger;
-
-	char _real_file[FILENAME_LEN];
-
 	// 数据库
 	char sql_user[32];
 	char sql_passwd[32];
@@ -145,6 +147,14 @@ private:
 	char* _string;
 	char* _root;
 	char* _url;
+	Value _url_params;
+
+	// 响应报文的信息
+	Value _response_json;
+	bool _linger;
+	char _real_file[FILENAME_LEN];
+	bool _response_type; // 响应类型，file or data
+	char _content_type[16];
 };
 
 #endif

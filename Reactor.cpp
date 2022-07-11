@@ -5,7 +5,7 @@ Reactor::Reactor() {
 	// root文件夹路径
 	char server_path[256];
 	getcwd(server_path, sizeof(server_path));
-	char root[32] = "/root/CloudDrive/dist";
+	char root[32] = "/../cloud_drive/dist";
 	_root_path = new char[strlen(server_path) + strlen(root) + 1];
 	strcpy(_root_path, server_path);
 	strcat(_root_path, root);
@@ -122,15 +122,17 @@ void Reactor::event_loop() {
 		// epoll等待事件
 		int event_num = epoll_wait(_epoll_fd, _events, MAX_EVENT_NUM, -1);
 		if(event_num < 0 && errno != EINTR) {
-			LOG_INFO("epoll failure!");
+			LOG_ERROR("epoll failure!");
 			break;
 		}
 
-		// printf("there are %d events.\n", event_num);
+		// LOG_DEBUG("there are %d events.\n", event_num);
 
 		for(int i = 0; i < event_num; ++i) {
 
 			int sock_fd = _events[i].data.fd;
+			
+			// LOG_DEBUG(" -> %d %d\n", sock_fd, _events[i].events);
 
 			// 接收到 新的客户端连接
 			if(sock_fd == _listen_fd) {

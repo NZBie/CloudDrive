@@ -11,7 +11,7 @@
 #include <string.h>
 #include <assert.h>
 
-#include "Mysql_CGI/SqlConnPool.h"
+#include "MySQL_CGI/SqlConnPool.h"
 #include "Http/HttpConn.h"
 #include "ThreadPool/ThreadPool.h"
 #include "log/log.h"

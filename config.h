@@ -14,8 +14,9 @@ namespace config {
 	// 数据库连接池
 	string mysql_name = "root";
 	string mysql_passwd = "123456";
-	string mysql_dbname = "mywebserver";
-	int max_conn_num = 3;
+	string mysql_dbname = "CloudDrive";
+	
+	int max_conn_num = 8;
 
 	// 线程池
 	int thread_num = 8;

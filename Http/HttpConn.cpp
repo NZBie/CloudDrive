@@ -6,10 +6,10 @@ int HttpConn::_epoll_fd = -1;
 const HttpConn::HTTP_MESSAGE HttpConn::http_messages[10] = {
 	{},
 	{},
-	{400, "Bad Request", "Your request has bad syntax or is inherently impossible to staisfy.\n"},
-	{404, "Not Found", "The requested file was not found on this server.\n"},
-	{403, "Forbidden", "You do not have permission to get file form this server.\n"},
 	{200, "OK", ""},
+	{400, "Bad Request", "Your request has bad syntax or is inherently impossible to satisfy.\n"},
+	{403, "Forbidden", "You do not have permission to get file form this server.\n"},
+	{404, "Not Found", "The requested file was not found on this server.\n"},
 	{500, "Internal Error", "There was an unusual problem serving the request file.\n"},
 	{}
 };
@@ -57,6 +57,7 @@ void HttpConn::init() {
 
 	_read_len = 0;
 	_write_len = 0;
+
 	_file_address = nullptr;
 
 	_url = nullptr;
@@ -64,9 +65,14 @@ void HttpConn::init() {
 	_line_end = 0;
 	_line_begin = 0;
 
+	_url_params = Value();
+	_response_json = Value();
+
 	memset(_read_buf, 0, READ_BUFFER_SIZE);
 	memset(_write_buf, 0, WRITE_BUFFER_SIZE);
 	memset(_real_file, 0, FILENAME_LEN);
+
+	memset(_content_type, 0, sizeof(_content_type));
 }
 
 // 断开和客户端的连接
@@ -85,7 +91,7 @@ void HttpConn::close_connection() {
 	}
 }
 
-// http 解析 & 处理 & 反馈 的过程
+// 解析 & 处理 & 反馈 的过程
 void HttpConn::complete_process() {
 
 	// 解析报文
@@ -124,10 +130,9 @@ bool HttpConn::read_request() {
 			if(tmp == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) break;
 			else return false;
 		}
-
 		_read_len += tmp;
 	}
-
+	
 	LOG_INFO("Request message received: \n%s", _read_buf);
 	return true;
 }
@@ -224,7 +229,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_line(char* text) {
 	tmp += strspn(tmp, " \t");
 	_version = strpbrk(tmp, " \t");
 	if(_version == nullptr) return BAD_REQUEST;
-	*_version++ = '\0';
+	*(_version++) = '\0';
 	_version += strspn(_version, " \t");
 
 	if(strcmp(_version, "HTTP/1.1") != 0 && strcmp(_version, "HTTP/1.0") != 0) return BAD_REQUEST;
@@ -242,6 +247,26 @@ HttpConn::HTTP_CODE HttpConn::parse_request_line(char* text) {
 	if(tmp == nullptr || tmp[0] != '/') return BAD_REQUEST;
 	if(strlen(tmp) == 1) strcat(tmp, "index.html");
 	_url = tmp;
+
+	// 解析url中的参数
+	tmp = strpbrk(tmp, "?");
+	if(tmp != nullptr) {
+
+		*(tmp++) = '\0';
+		char* param_key;
+		char* param_val;
+		while(tmp != nullptr) {
+			param_key = tmp;
+			tmp = strpbrk(tmp, "=");
+			if(tmp == nullptr) break;
+			*(tmp++) = '\0';
+			param_val = tmp;
+			tmp = strpbrk(tmp, "&");
+			if(tmp != nullptr) *(tmp++) = '\0';
+			
+			_url_params[param_key] = param_val;
+		}
+	}
 
 	// 状态变化
 	_check_status = REQUEST_HEADER;
@@ -297,18 +322,68 @@ HttpConn::HTTP_CODE HttpConn::parse_request_content(char* text) {
     return NO_REQUEST;
 }
 
+// 对解析后的报文进行处理
+HttpConn::HTTP_CODE HttpConn::do_request() {
+
+	strcpy(_real_file, _root);
+	int len = strlen(_root);
+
+	printf("%s\n", _url);
+	string url(_url);
+
+	// 数据请求
+	if(m_bll.find(url) != m_bll.end()) {
+
+		if(m_bll[url](_url_params, _response_json) == false) {
+			return BAD_REQUEST;
+		}
+
+		strcpy(_content_type, "application/json");
+		_response_type = false;
+	}
+
+	// 直接访问_url对应的文件
+	else {
+		strncpy(_real_file + len, _url, FILENAME_LEN - len - 1);
+
+		// 从_file_stat中获取文件信息
+		if(stat(_real_file, &_file_stat) < 0) return NO_RESOURCE;
+		if(!(_file_stat.st_mode & S_IROTH)) return FORBIDDEN_REQUEST;
+		if(S_ISDIR(_file_stat.st_mode)) return BAD_REQUEST;
+
+		// 硬盘到内存的地址映射
+		int file_fd = open(_real_file, O_RDONLY);
+		_file_address = (char *)mmap(0, _file_stat.st_size, PROT_READ, MAP_PRIVATE, file_fd, 0);
+		close(file_fd);
+
+		_response_type = true;
+	}
+
+    return OK_REQUEST;
+}
+
 // 将报文写入缓存中
 bool HttpConn::add_message(HTTP_CODE ret) {
 
 	// 添加 响应行
 	add_response_line(http_messages[ret].code, http_messages[ret].title);
 
-	// 文件请求
-	if(ret == FILE_REQUEST && _file_stat.st_size != 0) {
-		add_response_headers(_file_stat.st_size);
+	// 请求
+	if(ret == OK_REQUEST) {
+
+		if(_response_type && _file_stat.st_size > 0) {
+			add_response_headers(_file_stat.st_size);
+		}
+		
+		// 响应数据
+		else {
+			const string content = fwriter.write(_response_json);
+			add_response_headers(content.size());
+			add_response_content((content).c_str());
+		}
 	}
 
-	// 非文件请求 & 请求失败
+	// 请求失败
 	else {
 
 		// 添加预设的 响应头 和 响应数据
@@ -316,6 +391,23 @@ bool HttpConn::add_message(HTTP_CODE ret) {
 		add_response_content(http_messages[ret].form);
 	}
 	return true;
+}
+
+// 添加响应行 & 响应头 & 响应数据
+inline bool HttpConn::add_response_line(int status, const char* title) {
+	return add_single_line("%s %d %s\r\n", "HTTP/1.1", status, title);
+}
+inline bool HttpConn::add_response_headers(int content_len) {
+	bool res = true;
+	res &= add_single_line("Content-Length:%d\r\n", content_len);
+	res &= add_single_line("Content-Type:%s\r\n", _content_type);
+	res &= add_single_line("Connection:%s\r\n", (_linger ? "keep-alive" : "close"));
+	res &= add_single_line("Access-Control-Allow-Origin:*\r\n");
+	res &= add_single_line("\r\n");
+	return res;
+}
+inline bool HttpConn::add_response_content(const char* content) {
+	return add_single_line("%s", content);
 }
 
 // 将单行报文写入缓存中
@@ -339,48 +431,6 @@ bool HttpConn::add_single_line(const char* format, ...) {
 	}
 }
 
-// 添加响应行 & 响应头 & 响应数据
-inline bool HttpConn::add_response_line(int status, const char* title) {
-	return add_single_line("%s %d %s\r\n", "HTTP/1.1", status, title);
-}
-inline bool HttpConn::add_response_headers(int content_len) {
-	bool res = true;
-	res &= add_single_line("Content-Length:%d\r\n", content_len);
-	res &= add_single_line("Content-Type:%s\r\n", "text/html");
-	res &= add_single_line("Connection:%s\r\n", (_linger ? "keep-alive" : "close"));
-	res &= add_single_line("\r\n");
-	return res;
-}
-inline bool HttpConn::add_response_content(const char* content) {
-	return add_single_line("%s", content);
-}
-
-// 对解析后的报文进行处理
-HttpConn::HTTP_CODE HttpConn::do_request() {
-
-	strcpy(_real_file, _root);
-	int len = strlen(_root);
-
-	// 处理登陆注册
-	if(_method == POST) {
-
-	}
-
-	// 直接访问_url对应的html文件
-	else strncpy(_real_file + len, _url, FILENAME_LEN - len - 1);
-
-	// 从_file_stat中获取文件信息
-	if(stat(_real_file, &_file_stat) < 0) return NO_RESOURCE;
-    if(!(_file_stat.st_mode & S_IROTH)) return FORBIDDEN_REQUEST;
-    if(S_ISDIR(_file_stat.st_mode)) return BAD_REQUEST;
-
-	// 硬盘到内存的地址映射
-    int file_fd = open(_real_file, O_RDONLY);
-    _file_address = (char *)mmap(0, _file_stat.st_size, PROT_READ, MAP_PRIVATE, file_fd, 0);
-    close(file_fd);
-    return FILE_REQUEST;
-}
-
 // 将响应 从缓存 写回到 socket
 bool HttpConn::write_response() {
 
@@ -390,15 +440,12 @@ bool HttpConn::write_response() {
 		return true;
 	}
 
-	// if(_file_address) {
-	// 	strcat(_write_buf, _file_address);
-	// 	_write_len += _file_stat.st_size;
-	// }
-
 	// 发送报文头和报文主体
 	bool ret = true;
 	ret &= write_single_buffer(_write_buf, _write_len);
-	if(_file_address) {
+
+	// 响应文件资源
+	if(_response_type && _file_address && _file_stat.st_size > 0) {
 		ret &= write_single_buffer(_file_address, _file_stat.st_size);
 		munmap(_file_address, _file_stat.st_size);
 		_file_address = nullptr;

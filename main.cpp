@@ -1,3 +1,6 @@
+
+#include <jsoncpp/json/json.h>
+
 #include "config.h"
 #include "Reactor.h"
 

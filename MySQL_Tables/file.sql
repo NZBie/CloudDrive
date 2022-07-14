@@ -7,7 +7,7 @@ CREATE TABLE CloudDrive.file
 	parID           int             NOT NULL,
 
     fName           varchar(64)     NOT NULL,
-    extension       varchar(8)      NULL,
+    extension       varchar(8)      NOT NULL,
     size            int             NOT NULL,
     deleted         bool            NOT NULL,
 

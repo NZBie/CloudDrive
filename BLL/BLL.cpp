@@ -9,6 +9,7 @@
 #include "file/getFileList.cpp"
 #include "file/newFolder.cpp"
 #include "file/deleteFile.cpp"
+#include "file/uploadFile.cpp"
 
 #include "token.cpp"
 
@@ -29,6 +30,7 @@ void map_bll_init() {
 	m_bll.insert({"/file/getFileList", &getFileList});
 	m_bll.insert({"/file/newFolder", &newFolder});
 	m_bll.insert({"/file/deleteFile", &deleteFile});
+	m_bll.insert({"/file/uploadFile", &uploadFile});
 }
 
 bool execute_insert(const string sql_insert) {
@@ -66,4 +68,13 @@ MYSQL_RES* execute_query(const string sql_query) {
 	SqlConnPool::get_instance()->release_connection(mysql);
 
 	return result;
+}
+
+string get_now_dateTime() {
+
+	time_t now = time(NULL);
+	tm* tm_t = localtime(&now);
+	string curTime = "\'" + to_string(tm_t->tm_year+1900) + "-" + to_string(tm_t->tm_mon+1) + "-" + to_string(tm_t->tm_mday) + " " + 
+					to_string(tm_t->tm_hour) + ":" + to_string(tm_t->tm_min) + ":" + to_string(tm_t->tm_sec) + "\'";
+	return curTime;
 }

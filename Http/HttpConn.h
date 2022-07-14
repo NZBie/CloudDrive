@@ -22,6 +22,8 @@
 #include "../log/log.h"
 #include "../MySQL_CGI/SqlConnPool.h"
 #include "../BLL/BLL.h"
+#include "FormData/FormDataParser.h"
+#include "FormData/FormItem.h"
 
 using std::string;
 using Json::Value;
@@ -29,7 +31,7 @@ using Json::Value;
 class HttpConn {
 public:
 	static const int FILENAME_LEN = 200;
-	static const int READ_BUFFER_SIZE = 2048;
+	static const int READ_BUFFER_SIZE = 20480;
 	static const int WRITE_BUFFER_SIZE = 1024;
 	enum METHOD
 	{
@@ -77,7 +79,7 @@ public:
 
 public:
 	HttpConn() {map_bll_init();};
-	~HttpConn() {};
+	~HttpConn() {close_connection();};
 
 	void init(int client_fd, sockaddr_in& address, char* root, string user, string passwd, string dbname);
 	void complete_process();	// 解析 & 处理 & 反馈 的过程
@@ -120,9 +122,10 @@ public:
 
 private:
 	int _client_fd;
+	char* _root;			// 服务器资源root目录
 
 	// 读
-	char _read_buf[READ_BUFFER_SIZE];	// 读缓存
+	char* _read_buf;					// 读缓存
 	int _read_len;						// 读缓存 中内容的大小
 	int _line_begin;					// 当前解析行 的起始位置
 	int _line_end;						// 当前解析行 的末位置
@@ -131,8 +134,8 @@ private:
 	// 写
 	char _write_buf[WRITE_BUFFER_SIZE];	// 写缓存
 	int _write_len;						// 写缓存 中内容的大小
-	char* _file_address;
-	struct stat _file_stat;
+	char* _file_address;				// 文件存储的地址
+	struct stat _file_stat;				// 文件类
 
 	// 数据库
 	char sql_user[32];
@@ -140,21 +143,22 @@ private:
 	char sql_dbname[32];
 
 	// 请求报文的信息
-	METHOD _method;
-	char* _version;
-	int _content_length;
-	char* _host;
-	char* _string;
-	char* _root;
-	char* _url;
-	Value _url_params;
+	METHOD _method;			// 请求方法
+	char* _url;				// 请求行url
+	Value _rqs_params;		// 请求报文携带的参数，包含url和content
+	char* _version;			// http协议版本
+	char* _host;			// 主机ip
+	int _content_length;	// 请求体大小
+	// char* _content_type;	// 请求数据类型
+	char _boundary[50];		// FormData数据边界
+	// char* _content;			// 请求体
 
 	// 响应报文的信息
-	Value _response_json;
-	bool _linger;
-	char _real_file[FILENAME_LEN];
-	bool _response_type; // 响应类型，file or data
-	char _content_type[16];
+	Value _response_json;			// 响应的json参数
+	bool _linger;					// 
+	char _real_file[FILENAME_LEN];	// 文件资源路径
+	bool _response_type; 			// 响应类型，file or data
+	char _content_type[16];			// 响应体数据类型
 };
 
 #endif

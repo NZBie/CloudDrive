@@ -1,6 +1,9 @@
 #ifndef BLL_H
 #define BLL_H
 
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <jsoncpp/json/json.h>
 #include <ctime>
 #include <map>
@@ -30,6 +33,7 @@ bool getInfo(const Value& params, Value& rpsJson);		// 获取用户信息
 bool getFileList(const Value& params, Value& rpsJson);	// 获取文件列表
 bool newFolder(const Value& params, Value& rpsJson); 	// 新建文件夹
 bool deleteFile(const Value& params, Value& rpsJson);	// 删除文件
+bool uploadFile(const Value& params, Value& rpsJson);	// 上传文件
 
 string generate_token(const string email);				// 生成token
 int parse_token(const string token);					// 解析token
@@ -37,5 +41,7 @@ int parse_token(const string token);					// 解析token
 // 基本数据库操作
 bool execute_insert(const string sql_insert);
 MYSQL_RES* execute_query(const string sql_query);
+
+string get_now_dateTime();
 
 #endif

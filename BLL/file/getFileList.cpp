@@ -21,18 +21,35 @@ bool getFileList(const Value& params, Value& rpsJson) {
 	rpsJson["fid"] = row[0];
 	rpsJson["fName"] = row[2];
 
+	// 当前目录下的文件夹信息
+	string folders_query = "select * from folder where parID=\'" + fid + "\'";
+	result = execute_query(folders_query);
+	while(row = mysql_fetch_row(result)) {
+		if(strcmp(row[4], "1") == 0) continue;
+		Value folder;
+		folder["fid"] = row[0];
+		folder["fName"] = row[2];
+		folder["size"] = row[3];
+		folder["modifyTime"] = row[5];
+		folder["createTime"] = row[6];
+		folder["isFolder"] = true;
+
+		rpsJson["fileList"].append(folder);
+	}
+
 	// 当前目录下的文件信息
-	folder_query = "select * from folder where parID=\'" + fid + "\'";
-	result = execute_query(folder_query);
+	string files_query = "select * from file where parID=\'" + fid + "\'";
+	result = execute_query(files_query);
 	while(row = mysql_fetch_row(result)) {
 		if(strcmp(row[4], "1") == 0) continue;
 		Value file;
 		file["fid"] = row[0];
 		file["fName"] = row[2];
-		file["size"] = row[3];
-		file["modifyTime"] = row[5];
-		file["createTime"] = row[6];
-		file["isFolder"] = true;
+		file["extension"] = row[3];
+		file["size"] = row[4];
+		file["modifyTime"] = row[6];
+		file["createTime"] = row[7];
+		file["isFolder"] = false;
 
 		rpsJson["fileList"].append(file);
 	}

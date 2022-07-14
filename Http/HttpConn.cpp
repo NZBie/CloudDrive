@@ -46,6 +46,8 @@ void HttpConn::init(int client_fd, sockaddr_in& address, char* root, string user
 	strcpy(sql_passwd, passwd.c_str());
 	strcpy(sql_dbname, dbname.c_str());
 
+	_read_buf = new char[READ_BUFFER_SIZE];
+
 	init();
 }
 
@@ -65,10 +67,12 @@ void HttpConn::init() {
 	_line_end = 0;
 	_line_begin = 0;
 
-	_url_params = Value();
+	_rqs_params = Value();
 	_response_json = Value();
 
-	memset(_read_buf, 0, READ_BUFFER_SIZE);
+	_content_length = 0;
+
+	// memset(_read_buf, 0, READ_BUFFER_SIZE);
 	memset(_write_buf, 0, WRITE_BUFFER_SIZE);
 	memset(_real_file, 0, FILENAME_LEN);
 
@@ -89,6 +93,9 @@ void HttpConn::close_connection() {
 		_client_fd = -1;
 		_user_count--;
 	}
+
+	delete[] _read_buf;
+	_read_buf = nullptr;
 }
 
 // 解析 & 处理 & 反馈 的过程
@@ -132,7 +139,7 @@ bool HttpConn::read_request() {
 		}
 		_read_len += tmp;
 	}
-	
+	LOG_INFO("%d", _read_len);
 	LOG_INFO("Request message received: \n%s", _read_buf);
 	return true;
 }
@@ -153,8 +160,6 @@ HttpConn::HTTP_CODE HttpConn::parse_message() {
 		}
 
 		// 从_read_buf中读取一行
-		// line_state = get_line();
-		if(line_state != LINE_OK) break;
 		text = _read_buf + _line_begin;
 		_line_begin = _line_end;
 
@@ -264,7 +269,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_line(char* text) {
 			tmp = strpbrk(tmp, "&");
 			if(tmp != nullptr) *(tmp++) = '\0';
 			
-			_url_params[param_key] = param_val;
+			_rqs_params[param_key] = param_val;
 		}
 	}
 
@@ -276,7 +281,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_headers(char* text) {
 
     if (text[0] == '\0')
     {
-        if (_content_length != 0)
+        if (_content_length > 0)
         {
             _check_status = REQUEST_CONTENT;
             return NO_REQUEST;
@@ -298,6 +303,20 @@ HttpConn::HTTP_CODE HttpConn::parse_request_headers(char* text) {
         text += strspn(text, " \t");
         _content_length = atol(text);
     }
+	else if(strncmp(text, "Content-Type:", 13) == 0) {
+        text += 12;
+        text += strspn(text, " :\t");
+        // _content_type = text;
+		text = strpbrk(text, " ;\t");
+		*(text++) = '\0';
+		text += strspn(text, " ;\t");
+		if(strncmp(text, "boundary=", 9) == 0) {
+			text += 9;
+			text += strspn(text, " \t");
+			strcpy(_boundary, "--");
+			strcpy(_boundary+2, text);
+		}
+	}
     else if (strncasecmp(text, "Host:", 5) == 0)
     {
         text += 5;
@@ -312,11 +331,21 @@ HttpConn::HTTP_CODE HttpConn::parse_request_headers(char* text) {
 }
 HttpConn::HTTP_CODE HttpConn::parse_request_content(char* text) {
 
-    if (_read_len >= _line_end + _content_length)
-    {
+printf("(%d,%d,%d)\n", _read_len, _line_end, _content_length);
+
+    if (_read_len >= _line_end + _content_length) {
+
+		// 解析请求体
         text[_content_length] = '\0';
-        //POST请求中最后为输入的用户名和密码
-        _string = text;
+		FormDataParser fmdParser(text, _content_length, _boundary, 0);
+		std::vector<FormItem>* data = fmdParser.parse();
+		_rqs_params["fName"] = (*data)[0].getFileName();
+		_rqs_params["fSize"] = (*data)[0].getSize();
+		const void* xxx = ((*data)[0].getContent());
+		const void* xxxx = &xxx;
+		const long long* xx = (long long*)xxxx;
+		_rqs_params["fData"] = (int64_t)*xx;
+
         return GET_REQUEST;
     }
     return NO_REQUEST;
@@ -334,7 +363,7 @@ HttpConn::HTTP_CODE HttpConn::do_request() {
 	// 数据请求
 	if(m_bll.find(url) != m_bll.end()) {
 
-		if(m_bll[url](_url_params, _response_json) == false) {
+		if(m_bll[url](_rqs_params, _response_json) == false) {
 			return BAD_REQUEST;
 		}
 

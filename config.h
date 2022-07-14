@@ -20,7 +20,7 @@ namespace config {
 
 	// 线程池
 	int thread_num = 8;
-	int max_task_num = 10000;
+	int max_task_num = 1000;
 }
 
 #endif

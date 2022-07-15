@@ -9,10 +9,17 @@ bool uploadFile(const Value& params, Value& rpsJson) {
 	string parID = params["fid"].asString();
 	string fName = params["fName"].asString();
 	int fSize = params["fSize"].asInt();
+	string extension;
+	for(int i=fName.size()-1;i>=0;i--) {
+		if(fName[i] == '.') {
+			extension = fName.substr(i);
+			break;
+		}
+	}
 
 	string curTime = get_now_dateTime();
 	string file_insert = "insert into file (parID, fName, size, extension, deleted, modifyTime, createTime) value(\'" + 
-							parID + "\',\'" + fName + "\'," + to_string(fSize) + ",\'" + ".png" + "\'," + "false" + "," + curTime + "," + curTime + ")";
+							parID + "\',\'" + fName + "\'," + to_string(fSize) + ",\'" + extension + "\'," + "false" + "," + curTime + "," + curTime + ")";
 	if(execute_insert(file_insert) == false) {
 		return false;
 	}

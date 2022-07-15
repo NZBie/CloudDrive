@@ -11,10 +11,10 @@
 #include <string.h>
 #include <assert.h>
 
-#include "MySQL_CGI/SqlConnPool.h"
-#include "Http/HttpConn.h"
-#include "ThreadPool/ThreadPool.h"
-#include "log/log.h"
+#include "../MySQL_CGI/SqlConnPool.h"
+#include "../Http/HttpConn.h"
+#include "../ThreadPool/ThreadPool.h"
+#include "../log/log.h"
 
 using std::string;
 
@@ -23,16 +23,10 @@ const int MAX_EVENT_NUM = 1024;
 
 class Reactor {
 public:
-	// 获取唯一实例
-	// static SqlConnPool* get_instance();
-	Reactor();
-	~Reactor();
+	Reactor(short port, ThreadPool<HttpConn>* thread_pool, SqlConnPool* conn_pool):
+		_port(port), _thread_pool(thread_pool), _conn_pool(conn_pool) {}; 
 
-	// 初始化
-	void init(
-		int thread_num, int max_task_num,
-		short port, string user, string passwd, string dbname, int max_conn_num
-	);
+	~Reactor();
 
 	// epoll相关
 	void event_listen();
@@ -45,25 +39,31 @@ private:
 	void deal_client_read(int client_fd);
 	void deal_client_write(int client_fd);
 
-	// 日志 & 线程池 & 数据库连接池 的初始化
-	void init_log();
-	void init_thread_pool(int thread_num, int max_task_num);
-	void init_sql_conn_pool(short port, string user, string passwd, string dbname, int max_conn_num);
+	// epoll添加、修改事件
+	void add_event(int epoll_fd, int sock_fd, int events);
+	void set_nonblocking(int sock_fd);
+
+	// 定时器相关
+	void init_timer_pipe();
 
 private:
+
+	// epoll事件表
+	int _port;
 	int _listen_fd;
 	int _epoll_fd;
-	int _port;
-	char* _root_path;
+	epoll_event _events[MAX_EVENT_NUM];
+
+	// 定时器
+	int _pipe_fd[2];
+
+	// 线程池
+	ThreadPool<HttpConn>* _thread_pool;
+
+	// 数据库连接池
 	string sql_user;
 	string sql_passwd;
 	string sql_dbname;
-
-	// 事件表
-	epoll_event _events[MAX_EVENT_NUM];
-
-	// 线程池 & 数据库连接池
-	ThreadPool<HttpConn>* _thread_pool;
 	SqlConnPool* _conn_pool;
 
 	// _client_fd到用户的索引

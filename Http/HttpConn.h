@@ -81,7 +81,7 @@ public:
 	HttpConn() {map_bll_init();};
 	~HttpConn() {close_connection();};
 
-	void init(int client_fd, sockaddr_in& address, char* root, string user, string passwd, string dbname);
+	void init(int client_fd, sockaddr_in& address);
 	void complete_process();	// 解析 & 处理 & 反馈 的过程
 
 	// socket ~ buffer

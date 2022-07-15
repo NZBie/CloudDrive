@@ -1,16 +1,5 @@
 #include "Reactor.h"
 
-Reactor::Reactor() {
-
-	// root文件夹路径
-	char server_path[256];
-	getcwd(server_path, sizeof(server_path));
-	char root[32] = "/../cloud_drive/dist";
-	_root_path = new char[strlen(server_path) + strlen(root) + 1];
-	strcpy(_root_path, server_path);
-	strcat(_root_path, root);
-}
-
 Reactor::~Reactor() {
 	
 	close(_epoll_fd);
@@ -19,46 +8,21 @@ Reactor::~Reactor() {
 	delete _thread_pool;
 }
 
-// 初始化 反应堆
-void Reactor::init(
-	int thread_num, int max_task_num,
-	short port, 
-	string user, string passwd, string dbname, 
-	int max_conn_num) {
+// 在内核事件表中注册事件
+void Reactor::add_event(int epoll_fd, int sock_fd, int events) {
 
-	_port = port;
-	sql_user = user;
-	sql_passwd = passwd;
-	sql_dbname = dbname;
-	
-	init_log();
-	init_thread_pool(thread_num, max_task_num);
-	init_sql_conn_pool(3306, user, passwd, dbname, max_conn_num);
+	epoll_event event;
+	event.data.fd = sock_fd;
+	event.events = events;
+	epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock_fd, &event);
 }
 
-// 初始化 日志
-void Reactor::init_log()
-{
-    // if (_close_log == false)
-    // {
-        //初始化日志
-        // if (1 == m_log_write)
-            Log::get_instance()->init("./ServerLog", false, 2000, 800000, 800);
-        // else
-        //     Log::get_instance()->init("./ServerLog", m_close_log, 2000, 800000, 0);
-    // }
-}
+// 设置文件描述符为非阻塞
+void Reactor::set_nonblocking(int sock_fd) {
 
-// 初始化 线程池
-void Reactor::init_thread_pool(int thread_num, int max_task_num) {
-	_thread_pool = new ThreadPool<HttpConn> (thread_num, max_task_num);
-}
-
-// 初始化 数据库连接池
-void Reactor::init_sql_conn_pool(short port, string user, string passwd, string dbname, int max_conn_num) {
-
-	_conn_pool = SqlConnPool::get_instance();
-	_conn_pool->init("localhost", port, user, passwd, dbname, max_conn_num);
+    int old_option = fcntl(sock_fd, F_GETFL);
+    int new_option = old_option | O_NONBLOCK;
+    fcntl(sock_fd, F_SETFL, new_option);
 }
 
 // 开启监听socket
@@ -95,18 +59,21 @@ void Reactor::event_listen() {
 	assert(_epoll_fd != -1);
 
 	// 在内核事件表注册读事件
-	epoll_event event;
-	event.data.fd = _listen_fd;
-	event.events = EPOLLIN | EPOLLRDHUP | EPOLLET;
-	epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _listen_fd, &event);
+	add_event(_epoll_fd, _listen_fd, EPOLLIN | EPOLLRDHUP | EPOLLET);
 
 	// 设置文件描述符为非阻塞
-    int old_option = fcntl(_listen_fd, F_GETFL);
-    int new_option = old_option | O_NONBLOCK;
-    fcntl(_listen_fd, F_SETFL, new_option);
+    set_nonblocking(_listen_fd);
 
 	// 设置HttpConn的_epoll_fd;
 	HttpConn::_epoll_fd = _epoll_fd;
+}
+
+// 初始化定时器
+void Reactor::init_timer_pipe() {
+
+	int ret = socketpair(PF_UNIX, SOCK_STREAM, 0, _pipe_fd);
+	assert(ret != -1);
+	
 }
 
 // 主事件循环体
@@ -182,7 +149,7 @@ bool Reactor::deal_client_connect() {
 			return false;
 		}
 
-		_users[client_fd].init(client_fd, client_address, _root_path, sql_user, sql_passwd, sql_dbname);
+		_users[client_fd].init(client_fd, client_address);
 		LOG_INFO("Accept successful ip: %s", inet_ntoa(client_address.sin_addr));
 	}
 

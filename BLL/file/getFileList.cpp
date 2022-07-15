@@ -41,7 +41,7 @@ bool getFileList(const Value& params, Value& rpsJson) {
 	string files_query = "select * from file where parID=\'" + fid + "\'";
 	result = execute_query(files_query);
 	while(row = mysql_fetch_row(result)) {
-		if(strcmp(row[4], "1") == 0) continue;
+		if(strcmp(row[5], "1") == 0) continue;
 		Value file;
 		file["fid"] = row[0];
 		file["fName"] = row[2];

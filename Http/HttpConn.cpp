@@ -25,11 +25,18 @@ void HttpConn::event_modify(int epoll_fd, int client_fd, int e) {
 }
 
 // 外部初始化
-void HttpConn::init(int client_fd, sockaddr_in& address, char* root, string user, string passwd, string dbname) {
+void HttpConn::init(int client_fd, sockaddr_in& address) {
+
+	// root文件夹路径
+	char server_path[256];
+	getcwd(server_path, sizeof(server_path));
+	char root[32] = "/cloud_drive/dist";
+	_root = new char[strlen(server_path) + strlen(root) + 1];
+	strcpy(_root, server_path);
+	strcat(_root, root);
 
 	_client_fd = client_fd;
 	_address = address;
-	_root = root;
 
 	// 在内核事件表注册读事件
 	epoll_event event;
@@ -41,10 +48,6 @@ void HttpConn::init(int client_fd, sockaddr_in& address, char* root, string user
     int old_option = fcntl(_client_fd, F_GETFL);
     int new_option = old_option | O_NONBLOCK;
     fcntl(_client_fd, F_SETFL, new_option);
-
-	strcpy(sql_user, user.c_str());
-	strcpy(sql_passwd, passwd.c_str());
-	strcpy(sql_dbname, dbname.c_str());
 
 	_read_buf = new char[READ_BUFFER_SIZE];
 

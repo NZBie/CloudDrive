@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#include <errno.h>
+
 #include <cstdio>
 #include <string.h>
 #include <assert.h>
@@ -15,11 +17,13 @@
 #include "../Http/HttpConn.h"
 #include "../ThreadPool/ThreadPool.h"
 #include "../log/log.h"
+#include "../Timer/ListTimer.h"
 
 using std::string;
 
 const int MAX_FD_NUM = 2048;
 const int MAX_EVENT_NUM = 1024;
+const int TIME_SLOT = 5;
 
 class Reactor {
 public:
@@ -45,6 +49,10 @@ private:
 
 	// 定时器相关
 	void init_timer_pipe();
+	void new_timer(int client_fd, sockaddr_in client_address);
+	bool deal_with_signal(bool& timeout, bool& stop_server);
+	void adjust_timer(UtilTimer* timer);
+	void delete_timer(UtilTimer* timer, int client_fd);
 
 private:
 
@@ -53,9 +61,6 @@ private:
 	int _listen_fd;
 	int _epoll_fd;
 	epoll_event _events[MAX_EVENT_NUM];
-
-	// 定时器
-	int _pipe_fd[2];
 
 	// 线程池
 	ThreadPool<HttpConn>* _thread_pool;
@@ -68,6 +73,12 @@ private:
 
 	// _client_fd到用户的索引
 	HttpConn _users[MAX_FD_NUM];
+
+	// 定时器
+	int _pipe_fd[2];
+	Client_data _users_timer[MAX_FD_NUM];
+	Utils _utils;
+
 };
 
 #endif

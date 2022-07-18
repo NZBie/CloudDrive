@@ -4,7 +4,8 @@ Reactor::~Reactor() {
 	
 	close(_epoll_fd);
 	close(_listen_fd);
-	// delete _conn_pool;
+	close(_pipe_fd[0]);
+	close(_pipe_fd[1]);
 	delete _thread_pool;
 }
 
@@ -68,22 +69,13 @@ void Reactor::event_listen() {
 	HttpConn::_epoll_fd = _epoll_fd;
 }
 
-// 初始化定时器
-void Reactor::init_timer_pipe() {
-
-	int ret = socketpair(PF_UNIX, SOCK_STREAM, 0, _pipe_fd);
-	assert(ret != -1);
-	
-}
-
 // 主事件循环体
 void Reactor::event_loop() {
 
 	bool server_close = false;
-	// bool timeout = false;
+	bool timeout = false;
 
 	while(server_close == false) {
-
 		// printf("%s\n", "epoll start wait...");
 
 		// epoll等待事件
@@ -94,27 +86,15 @@ void Reactor::event_loop() {
 		}
 
 		// LOG_DEBUG("there are %d events.\n", event_num);
-
 		for(int i = 0; i < event_num; ++i) {
 
 			int sock_fd = _events[i].data.fd;
-			
 			// LOG_DEBUG(" -> %d %d\n", sock_fd, _events[i].events);
 
 			// 接收到 新的客户端连接
 			if(sock_fd == _listen_fd) {
-				deal_client_connect();
+				if(deal_client_connect()) continue;
 			}
-
-			// 接收到 关闭服务器的信号
-			else if(_events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
-				
-			}
-
-			// 接收到 定时器信号
-			// else if(1) {
-
-			// }
 
 			// 接收到 客户端发来的数据
 			else if(_events[i].events & EPOLLIN) {
@@ -125,6 +105,24 @@ void Reactor::event_loop() {
 			else if(_events[i].events & EPOLLOUT) {
 				deal_client_write(sock_fd);
 			}
+
+			// 接收到 定时器信号
+			else if(sock_fd == _pipe_fd[0] && (_events[i].events & EPOLLIN)) {
+				if(deal_with_signal(timeout, server_close) == false) continue;
+			}
+
+			// 接收到 关闭服务器的信号
+			else if(_events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
+				// 移除指定定时器
+				UtilTimer* timer = _users_timer[sock_fd].timer;
+				delete_timer(timer, sock_fd);
+			}
+		}
+
+		if(timeout) {
+			_utils.timer_handler();
+			LOG_INFO("timer tick.");
+			timeout = false;
 		}
 	}
 }
@@ -150,6 +148,7 @@ bool Reactor::deal_client_connect() {
 		}
 
 		_users[client_fd].init(client_fd, client_address);
+		new_timer(client_fd, client_address);
 		LOG_INFO("Accept successful ip: %s", inet_ntoa(client_address.sin_addr));
 	}
 
@@ -159,14 +158,100 @@ bool Reactor::deal_client_connect() {
 // 处理 来自客户端 的读事件
 void Reactor::deal_client_read(int client_fd) {
 
+	UtilTimer* timer = _users_timer[client_fd].timer;
+	if(timer) adjust_timer(timer);
+
 	// 检测到读事件，放入请求队列
 	_thread_pool->append(_users + client_fd, 0);
-	// printf("count: %d\n", HttpConn::count);
 }
 
 // 处理 来自服务器 的写事件
 void Reactor::deal_client_write(int client_fd) {
 
+	UtilTimer* timer = _users_timer[client_fd].timer;
+	if(timer) adjust_timer(timer);
+
 	// 检测到写事件，放入请求队列
 	_thread_pool->append(_users + client_fd, 1);
+}
+
+// 处理 来自内核的信号
+bool Reactor::deal_with_signal(bool& timeout, bool& stop_server) {
+
+	// 通过管道接收信号
+	char signals[1024];
+	int ret = recv(_pipe_fd[0], signals, sizeof(signals), 0);
+	if(ret <= 0) return false;
+
+	for(int i=0;i<ret;i++) {
+		switch(signals[i]) {
+			case SIGALRM: {
+				timeout = true;
+				break;
+			}
+			case SIGTERM: {
+				stop_server = true;
+				break;
+			}
+			default: {
+				break;
+			}
+		}
+	}
+	return true;
+}
+
+// 初始化定时器
+void Reactor::init_timer_pipe() {
+
+	// 创建通信管道
+	int ret = socketpair(PF_UNIX, SOCK_STREAM, 0, _pipe_fd);
+	assert(ret != -1);
+
+	// 添加信号响应函数 
+    _utils.add_signal(SIGPIPE, SIG_IGN, true);
+    _utils.add_signal(SIGALRM, _utils.signal_handler, false);
+    _utils.add_signal(SIGTERM, _utils.signal_handler, false);
+
+	alarm(TIME_SLOT);
+
+	Utils::_pipe_fd = _pipe_fd;
+	Utils::_epoll_fd = _epoll_fd;
+}
+
+// 新建定时器并插入链表
+void Reactor::new_timer(int client_fd, sockaddr_in client_address) {
+
+	// 新建定时器
+	UtilTimer* timer = new UtilTimer;
+	timer->user_data = _users_timer + client_fd;
+	timer->cb_func = nullptr;
+	timer->expire = time(nullptr) + 3 * TIME_SLOT;
+
+	// 客户端信息
+	Client_data& client_data = _users_timer[client_fd];
+	client_data.address = client_address;
+	client_data.sock_fd = client_fd;
+	client_data.timer = timer;
+
+	// 将新定时器加入有序链表
+	_utils._timer_list.add_timer(timer);
+}
+
+// 活跃连接，重新调整定时器
+void Reactor::adjust_timer(UtilTimer* timer) {
+
+    timer->expire = time(nullptr) + 3 * TIME_SLOT;
+    _utils._timer_list.adjust_timer(timer);
+    // LOG_DEBUG("adjust timer once");
+}
+
+// 删除定时器
+void Reactor::delete_timer(UtilTimer* timer, int client_fd) {
+
+	timer->cb_func(&_users_timer[client_fd]);
+	if(timer) {
+		_utils._timer_list.delete_timer(timer);
+	}
+	LOG_INFO("close fd %d.", _users_timer[client_fd].sock_fd);
 }

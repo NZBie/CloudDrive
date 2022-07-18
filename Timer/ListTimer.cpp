@@ -12,8 +12,9 @@ SortTimerList::~SortTimerList() {
 }
 
 // 添加定时器到容器中
-void SortTimerList::add_timer(UtilTimer* node) {
+void SortTimerList::add_timer(UtilTimer* node, UtilTimer* begin) {
 
+	if(begin == nullptr) begin = head;
 	if(node == nullptr) return;
 
 	// 链表为空
@@ -51,7 +52,7 @@ void SortTimerList::add_timer(UtilTimer* node) {
 }
 
 // 删除定时器
-void SortTimerList::delete_timer(UtilTimer* node) {
+void SortTimerList::delete_timer(UtilTimer* node, bool destroy) {
 
 	if(node == nullptr) return;
 
@@ -78,15 +79,19 @@ void SortTimerList::delete_timer(UtilTimer* node) {
 		node->prev->next = node->next;
 		node->next->prev = node->prev;
 	}
-	delete node;
+	if(destroy) delete node;
 }
 
 // 调整定时器位置
 void SortTimerList::adjust_timer(UtilTimer* node) {
 
+	if(node == nullptr) return;
+	UtilTimer* next = node->next;
+	delete_timer(node, false);
+	add_timer(node, next);
 }
 
-// 
+// 每个定时单位的处理
 void SortTimerList::tick() {
 
 	// 链表为空
@@ -105,7 +110,7 @@ void Utils::init(int time_slot) {
 	_time_slot = time_slot;
 }
 
-//设置信号函数
+// 设置信号响应函数
 void Utils::add_signal(int sig, void (handler)(int), bool restart) {
 
     struct sigaction sa;
@@ -117,7 +122,7 @@ void Utils::add_signal(int sig, void (handler)(int), bool restart) {
     assert(sigaction(sig, &sa, NULL) != -1);
 }
 
-//信号处理函数
+// 信号处理函数
 void Utils::signal_handler(int sig) {
 
     //为保证函数的可重入性，保留原来的errno
@@ -148,4 +153,5 @@ void cb_func(Client_data* user_data) {
 	assert(user_data);
 	close(user_data->sock_fd);
 	// Http
+	HttpConn::_user_count--;
 }

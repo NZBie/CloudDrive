@@ -11,6 +11,10 @@
 
 #include <cstring>
 
+#include "../Http/HttpConn.h"
+
+class UtilTimer;
+
 class Client_data {
 public:
 	sockaddr_in address;
@@ -21,6 +25,7 @@ public:
 class UtilTimer {
 public:
 	UtilTimer():prev(nullptr), next(nullptr) {};
+	~UtilTimer() {};
 
 	time_t expire;
 	void (* cb_func)(Client_data*);
@@ -33,12 +38,12 @@ public:
 // 定时器的容器，有序链表
 class SortTimerList {
 public:
-	SortTimerList();
+	SortTimerList():head(nullptr), tail(nullptr) {};
 	~SortTimerList();
 
-	void add_timer(UtilTimer* node);		// 添加定时器
-	void delete_timer(UtilTimer* node);		// 删除定时器
-	void adjust_timer(UtilTimer* node);		// 调整定时器位置
+	void add_timer(UtilTimer* node, UtilTimer* begin = nullptr);	// 添加定时器
+	void delete_timer(UtilTimer* node, bool destroy = true);		// 删除定时器
+	void adjust_timer(UtilTimer* node);								// 调整定时器位置
 	void tick();
 private:
 	UtilTimer* head;
@@ -47,13 +52,13 @@ private:
 
 class Utils {
 public:
-	Utils();
-	~Utils();
+	Utils() {};
+	~Utils() {};
 
 	void init(int time_slot);
 
 	void add_signal(int sig, void(handler)(int), bool restart);
-	void signal_handler(int sig);
+	static void signal_handler(int sig);
 	void timer_handler();
 	void show_error(int conn_fd, const char *info);
 

@@ -94,8 +94,8 @@ void FormDataParser::parseHeaders() {
 
         char* header = thisLine;
         if(strcmp(header, "Content-Disposition") == 0) {
-            _partFileName = getDispositionValue(pos, "filename");
-            _partName = getDispositionValue(pos, "name");
+            _partFileName = getDispositionValue(pos, (char*)"filename");
+            _partName = getDispositionValue(pos, (char*)"name");
         }
         else if(strcmp(header, "Content-Type") == 0) {
             pos += strspn(pos, " ");

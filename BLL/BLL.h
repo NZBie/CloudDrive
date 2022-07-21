@@ -13,9 +13,9 @@
 
 using Json::Value;
 
-extern Json::Reader reader;
+// extern Json::Reader reader;
 extern Json::FastWriter fwriter;
-extern Json::StyledWriter swriter;
+// extern Json::StyledWriter swriter;
 
 typedef bool (*bll)(const Value&, Value&);
 extern std::map <string, bll> m_bll;

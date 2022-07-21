@@ -13,9 +13,9 @@
 
 #include "token.cpp"
 
-Json::Reader reader;
+// Json::Reader reader;
 Json::FastWriter fwriter;
-Json::StyledWriter swriter;
+// Json::StyledWriter swriter;
 
 std::map <string, bll> m_bll;
 
@@ -72,7 +72,7 @@ MYSQL_RES* execute_query(const string sql_query) {
 
 string get_now_dateTime() {
 
-	time_t now = time(NULL);
+	time_t now = time(nullptr);
 	tm* tm_t = localtime(&now);
 	string curTime = "\'" + to_string(tm_t->tm_year+1900) + "-" + to_string(tm_t->tm_mon+1) + "-" + to_string(tm_t->tm_mday) + " " + 
 					to_string(tm_t->tm_hour) + ":" + to_string(tm_t->tm_min) + ":" + to_string(tm_t->tm_sec) + "\'";

@@ -13,14 +13,14 @@ using namespace config;
 int main(int argc, char *argv[]) {
 
 	// 初始化 线程池
-	ThreadPool<HttpConn>* thread_pool = new ThreadPool<HttpConn> (thread_num, max_task_num);
+	ThreadPool<HttpConn>* thread_pool = new ThreadPool<HttpConn> (THREAD_NUM, MAX_TASK_NUM);
 
 	// 初始化 数据库连接池
 	SqlConnPool* conn_pool = SqlConnPool::get_instance();
-	conn_pool->init("localhost", config::mysql_port, mysql_name, mysql_passwd, mysql_dbname, max_conn_num);
+	conn_pool->init(URL, _MYSQL_PORT, MYSQL_NAME, MYSQL_PASSWD, MYSQL_DBNAME, MAX_CONN_NUM);
 
 	// 初始化日志
-    if(log_open == true) {
+    if(LOG_OPEN == true) {
         // if (1 == m_log_write)
             Log::get_instance()->init("./ServerLog", false, 2000, 800000, 800);
         // else
@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
     }
 
 	// 事件反应堆
-	Reactor reactor(server_port, thread_pool, conn_pool);
+	Reactor reactor(SERVER_PORT, thread_pool, conn_pool);
 	reactor.event_listen();
 	reactor.event_loop();
 }

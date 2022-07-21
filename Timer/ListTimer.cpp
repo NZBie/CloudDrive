@@ -14,11 +14,11 @@ SortTimerList::~SortTimerList() {
 // 添加定时器到容器中
 void SortTimerList::add_timer(UtilTimer* node, UtilTimer* begin) {
 
-	if(begin == nullptr) begin = head;
 	if(node == nullptr) return;
+	if(begin == nullptr) begin = head;
 
 	// 链表为空
-	if(head == nullptr) {
+	if(begin == nullptr) {
 		head = tail = node;
 		return;
 	}
@@ -36,8 +36,8 @@ void SortTimerList::add_timer(UtilTimer* node, UtilTimer* begin) {
 
 	// 插入尾部
 	else if(tmp == nullptr) {
-		tmp->next = node;
-		node->prev = tmp;
+		tail->next = node;
+		node->prev = tail;
 		tail = node;
 	}
 
@@ -63,7 +63,7 @@ void SortTimerList::delete_timer(UtilTimer* node, bool destroy) {
 	}
 
 	// 删除头结点
-	if(node == head) {
+	else if(node == head) {
 		head = head->next;
 		head->prev = nullptr;
 	}
@@ -79,7 +79,12 @@ void SortTimerList::delete_timer(UtilTimer* node, bool destroy) {
 		node->prev->next = node->next;
 		node->next->prev = node->prev;
 	}
+	
 	if(destroy) delete node;
+	else {
+		node->prev = nullptr;
+		node->next = nullptr;
+	}
 }
 
 // 调整定时器位置
@@ -126,10 +131,10 @@ void Utils::add_signal(int sig, void (handler)(int), bool restart) {
 void Utils::signal_handler(int sig) {
 
     //为保证函数的可重入性，保留原来的errno
-    int save_errno = errno;
+    int errno_bak = errno;
     int msg = sig;
     send(_pipe_fd[1], (char *)(&msg), 1, 0);
-    errno = save_errno;
+    errno = errno_bak;
 }
 
 // 执行定时任务，并重新定时
@@ -146,12 +151,3 @@ void Utils::show_error(int conn_fd, const char *info) {
 
 int Utils::_epoll_fd = 0;
 int* Utils::_pipe_fd = nullptr;
-
-void cb_func(Client_data* user_data) {
-
-	epoll_ctl(Utils::_epoll_fd, EPOLL_CTL_DEL, user_data->sock_fd, 0);
-	assert(user_data);
-	close(user_data->sock_fd);
-	// Http
-	HttpConn::_user_count--;
-}

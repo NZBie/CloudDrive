@@ -45,6 +45,7 @@ public:
 	void delete_timer(UtilTimer* node, bool destroy = true);		// 删除定时器
 	void adjust_timer(UtilTimer* node);								// 调整定时器位置
 	void tick();
+	
 private:
 	UtilTimer* head;
 	UtilTimer* tail;

@@ -18,17 +18,13 @@
 #include "../ThreadPool/ThreadPool.h"
 #include "../log/log.h"
 #include "../Timer/ListTimer.h"
+#include "../config.h"
 
 using std::string;
 
-const int MAX_FD_NUM = 2048;
-const int MAX_EVENT_NUM = 1024;
-const int TIME_SLOT = 5;
-
 class Reactor {
 public:
-	Reactor(short port, ThreadPool<HttpConn>* thread_pool, SqlConnPool* conn_pool):
-		_port(port), _thread_pool(thread_pool), _conn_pool(conn_pool) {}; 
+	Reactor(short port, ThreadPool<HttpConn>* thread_pool, SqlConnPool* conn_pool);
 
 	~Reactor();
 
@@ -48,7 +44,7 @@ private:
 	void set_nonblocking(int sock_fd);
 
 	// 定时器相关
-	void init_timer_pipe();
+	void init_utils_timer();
 	void new_timer(int client_fd, sockaddr_in client_address);
 	bool deal_with_signal(bool& timeout, bool& stop_server);
 	void adjust_timer(UtilTimer* timer);
@@ -60,7 +56,7 @@ private:
 	int _port;
 	int _listen_fd;
 	int _epoll_fd;
-	epoll_event _events[MAX_EVENT_NUM];
+	epoll_event _events[config::MAX_EVENT_NUM];
 
 	// 线程池
 	ThreadPool<HttpConn>* _thread_pool;
@@ -72,13 +68,14 @@ private:
 	SqlConnPool* _conn_pool;
 
 	// _client_fd到用户的索引
-	HttpConn _users[MAX_FD_NUM];
+	HttpConn* _users;
 
 	// 定时器
 	int _pipe_fd[2];
-	Client_data _users_timer[MAX_FD_NUM];
+	Client_data* _users_timer;
 	Utils _utils;
-
 };
+
+void cb_func(Client_data* user_data);
 
 #endif

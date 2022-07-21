@@ -24,15 +24,13 @@
 #include "../BLL/BLL.h"
 #include "FormData/FormDataParser.h"
 #include "FormData/FormItem.h"
+#include "../config.h"
 
 using std::string;
 using Json::Value;
 
 class HttpConn {
 public:
-	static const int FILENAME_LEN = 200;
-	static const int READ_BUFFER_SIZE = 20480;
-	static const int WRITE_BUFFER_SIZE = 1024;
 	enum METHOD
 	{
 		GET = 0,
@@ -69,17 +67,16 @@ public:
 		LINE_BAD,		// 当前行 语法错误
 		LINE_OPEN		// 当前行 未读取完整
 	};
-	class HTTP_MESSAGE {
-	public:
+	struct HTTP_MESSAGE {
 		int code;
-		char* title;
-		char* form;
+		char title[16];
+		char form[128];
 	};
 	static const HTTP_MESSAGE http_messages[10];
 
 public:
-	HttpConn() {map_bll_init();};
-	~HttpConn() {close_connection();};
+	HttpConn();
+	~HttpConn();
 
 	void init(int client_fd, sockaddr_in& address);
 	void complete_process();	// 解析 & 处理 & 反馈 的过程
@@ -119,6 +116,9 @@ public:
 	sockaddr_in _address;
 
 	int _state;
+	bool improve;
+	bool timer_flag;
+	bool _linger;
 
 private:
 	int _client_fd;
@@ -132,15 +132,15 @@ private:
 	CHECK_STATUS _check_status;
 
 	// 写
-	char _write_buf[WRITE_BUFFER_SIZE];	// 写缓存
+	char* _write_buf;					// 写缓存
 	int _write_len;						// 写缓存 中内容的大小
 	char* _file_address;				// 文件存储的地址
 	struct stat _file_stat;				// 文件类
 
 	// 数据库
-	char sql_user[32];
-	char sql_passwd[32];
-	char sql_dbname[32];
+	char sql_user[16];
+	char sql_passwd[16];
+	char sql_dbname[16];
 
 	// 请求报文的信息
 	METHOD _method;			// 请求方法
@@ -149,14 +149,11 @@ private:
 	char* _version;			// http协议版本
 	char* _host;			// 主机ip
 	int _content_length;	// 请求体大小
-	// char* _content_type;	// 请求数据类型
 	char _boundary[50];		// FormData数据边界
-	// char* _content;			// 请求体
 
 	// 响应报文的信息
 	Value _response_json;			// 响应的json参数
-	bool _linger;					// 
-	char _real_file[FILENAME_LEN];	// 文件资源路径
+	char _real_file[config::FILENAME_LEN];	// 文件资源路径
 	bool _response_type; 			// 响应类型，file or data
 	char _content_type[16];			// 响应体数据类型
 };

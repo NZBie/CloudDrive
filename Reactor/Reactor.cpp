@@ -1,5 +1,11 @@
 #include "Reactor.h"
 
+Reactor::Reactor(short port, ThreadPool<HttpConn>* thread_pool, SqlConnPool* conn_pool):
+	_port(port), _thread_pool(thread_pool), _conn_pool(conn_pool) {
+	_users = new HttpConn[config::MAX_FD_NUM];
+	_users_timer = new Client_data[config::MAX_FD_NUM];
+}; 
+
 Reactor::~Reactor() {
 	
 	close(_epoll_fd);
@@ -7,6 +13,8 @@ Reactor::~Reactor() {
 	close(_pipe_fd[0]);
 	close(_pipe_fd[1]);
 	delete _thread_pool;
+	delete[] _users;
+	delete[] _users_timer;
 }
 
 // 在内核事件表中注册事件
@@ -67,6 +75,8 @@ void Reactor::event_listen() {
 
 	// 设置HttpConn的_epoll_fd;
 	HttpConn::_epoll_fd = _epoll_fd;
+
+	init_utils_timer();
 }
 
 // 主事件循环体
@@ -79,7 +89,7 @@ void Reactor::event_loop() {
 		// printf("%s\n", "epoll start wait...");
 
 		// epoll等待事件
-		int event_num = epoll_wait(_epoll_fd, _events, MAX_EVENT_NUM, -1);
+		int event_num = epoll_wait(_epoll_fd, _events, config::MAX_EVENT_NUM, -1);
 		if(event_num < 0 && errno != EINTR) {
 			LOG_ERROR("epoll failure!");
 			break;
@@ -93,7 +103,19 @@ void Reactor::event_loop() {
 
 			// 接收到 新的客户端连接
 			if(sock_fd == _listen_fd) {
-				if(deal_client_connect()) continue;
+				if(deal_client_connect() == false) continue;
+			}
+
+			// 接收到 定时器信号
+			else if((sock_fd == _pipe_fd[0]) && (_events[i].events & EPOLLIN)) {
+				if(deal_with_signal(timeout, server_close) == false) continue;
+			}
+
+			// 接收到 关闭定时器的信号
+			else if(_events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
+				// 移除指定定时器
+				UtilTimer* timer = _users_timer[sock_fd].timer;
+				delete_timer(timer, sock_fd);
 			}
 
 			// 接收到 客户端发来的数据
@@ -104,18 +126,6 @@ void Reactor::event_loop() {
 			// 接收到 服务器发来的写事件，写完发送回客户端
 			else if(_events[i].events & EPOLLOUT) {
 				deal_client_write(sock_fd);
-			}
-
-			// 接收到 定时器信号
-			else if(sock_fd == _pipe_fd[0] && (_events[i].events & EPOLLIN)) {
-				if(deal_with_signal(timeout, server_close) == false) continue;
-			}
-
-			// 接收到 关闭服务器的信号
-			else if(_events[i].events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
-				// 移除指定定时器
-				UtilTimer* timer = _users_timer[sock_fd].timer;
-				delete_timer(timer, sock_fd);
 			}
 		}
 
@@ -142,7 +152,7 @@ bool Reactor::deal_client_connect() {
 			break;
 		}
 		// 服务器连接客户端达到上限
-		if(HttpConn::_user_count >= MAX_FD_NUM) {
+		if(HttpConn::_user_count >= config::MAX_FD_NUM) {
 			LOG_INFO("Server busy");
 			return false;
 		}
@@ -163,6 +173,18 @@ void Reactor::deal_client_read(int client_fd) {
 
 	// 检测到读事件，放入请求队列
 	_thread_pool->append(_users + client_fd, 0);
+
+	// 接收报文失败时，关闭连接
+	while(true) {
+		if(_users[client_fd].improve) {
+			if(_users[client_fd].timer_flag) {
+				delete_timer(timer, client_fd);
+				_users[client_fd].timer_flag = false;
+			}
+			_users[client_fd].improve = false;
+			break;
+		}
+	}
 }
 
 // 处理 来自服务器 的写事件
@@ -173,6 +195,18 @@ void Reactor::deal_client_write(int client_fd) {
 
 	// 检测到写事件，放入请求队列
 	_thread_pool->append(_users + client_fd, 1);
+
+	// 响应报文失败 或 keep-alive为空时，关闭连接
+	while(true) {
+		if(_users[client_fd].improve) {
+			if(_users[client_fd].timer_flag) {
+				delete_timer(timer, client_fd);
+				_users[client_fd].timer_flag = false;
+			}
+			_users[client_fd].improve = false;
+			break;
+		}
+	}
 }
 
 // 处理 来自内核的信号
@@ -202,18 +236,25 @@ bool Reactor::deal_with_signal(bool& timeout, bool& stop_server) {
 }
 
 // 初始化定时器
-void Reactor::init_timer_pipe() {
+void Reactor::init_utils_timer() {
+
+	_utils.init(config::TIME_SLOT);
 
 	// 创建通信管道
 	int ret = socketpair(PF_UNIX, SOCK_STREAM, 0, _pipe_fd);
 	assert(ret != -1);
+
+	// 注册事件
+	add_event(_epoll_fd, _pipe_fd[0], EPOLLIN | EPOLLRDHUP);
+	set_nonblocking(_pipe_fd[0]);
+	set_nonblocking(_pipe_fd[1]);
 
 	// 添加信号响应函数 
     _utils.add_signal(SIGPIPE, SIG_IGN, true);
     _utils.add_signal(SIGALRM, _utils.signal_handler, false);
     _utils.add_signal(SIGTERM, _utils.signal_handler, false);
 
-	alarm(TIME_SLOT);
+	alarm(config::TIME_SLOT);
 
 	Utils::_pipe_fd = _pipe_fd;
 	Utils::_epoll_fd = _epoll_fd;
@@ -225,33 +266,42 @@ void Reactor::new_timer(int client_fd, sockaddr_in client_address) {
 	// 新建定时器
 	UtilTimer* timer = new UtilTimer;
 	timer->user_data = _users_timer + client_fd;
-	timer->cb_func = nullptr;
-	timer->expire = time(nullptr) + 3 * TIME_SLOT;
+	timer->cb_func = cb_func;
+	timer->expire = time(nullptr) + 3 * config::TIME_SLOT;
 
 	// 客户端信息
-	Client_data& client_data = _users_timer[client_fd];
-	client_data.address = client_address;
-	client_data.sock_fd = client_fd;
-	client_data.timer = timer;
+	// Client_data& client_data = _users_timer[client_fd];
+	_users_timer[client_fd].address = client_address;
+	_users_timer[client_fd].sock_fd = client_fd;
+	_users_timer[client_fd].timer = timer;
 
 	// 将新定时器加入有序链表
 	_utils._timer_list.add_timer(timer);
 }
 
+// 删除定时器
+void Reactor::delete_timer(UtilTimer* timer, int client_fd) {
+	
+	if(timer) {
+		timer->cb_func(&_users_timer[client_fd]);
+		_utils._timer_list.delete_timer(timer);
+	}
+	LOG_INFO("close fd %d.", client_fd);
+}
+
 // 活跃连接，重新调整定时器
 void Reactor::adjust_timer(UtilTimer* timer) {
 
-    timer->expire = time(nullptr) + 3 * TIME_SLOT;
+    timer->expire = time(nullptr) + 3 * config::TIME_SLOT;
     _utils._timer_list.adjust_timer(timer);
     // LOG_DEBUG("adjust timer once");
 }
 
-// 删除定时器
-void Reactor::delete_timer(UtilTimer* timer, int client_fd) {
+// 定时处理函数
+void cb_func(Client_data* user_data) {
 
-	timer->cb_func(&_users_timer[client_fd]);
-	if(timer) {
-		_utils._timer_list.delete_timer(timer);
-	}
-	LOG_INFO("close fd %d.", _users_timer[client_fd].sock_fd);
+	epoll_ctl(Utils::_epoll_fd, EPOLL_CTL_DEL, user_data->sock_fd, 0);
+	assert(user_data);
+	close(user_data->sock_fd);
+	HttpConn::_user_count--;
 }

@@ -109,11 +109,18 @@ void ThreadPool<T>::run() {
 		
 		// 处理请求报文
 		if(task->_state == 0) {
-			task->read_request();
-			task->complete_process();		
+			int ret = task->read_request();
+			if(ret == false) {
+				task->timer_flag = true;
+			}
+			task->improve = true;
+			if(ret) task->complete_process();
 		}
 		else {
-			task->write_response();
+			if(task->write_response() == false) {
+				task->timer_flag = true;
+			}
+			task->improve = true;
 		}
 	}
 }

@@ -14,6 +14,18 @@ const HttpConn::HTTP_MESSAGE HttpConn::http_messages[10] = {
 	{}
 };
 
+HttpConn::HttpConn() {
+	map_bll_init();
+	_read_buf = new char[config::READ_BUFFER_SIZE];
+	_write_buf = new char[config::WRITE_BUFFER_SIZE];
+};
+
+HttpConn::~HttpConn() {
+	delete[] _read_buf;
+	delete[] _write_buf;
+	close_connection();
+};
+
 // 修改client_fd在内核事件表的监听事件
 void HttpConn::event_modify(int epoll_fd, int client_fd, int e) {
 
@@ -28,7 +40,7 @@ void HttpConn::event_modify(int epoll_fd, int client_fd, int e) {
 void HttpConn::init(int client_fd, sockaddr_in& address) {
 
 	// root文件夹路径
-	char server_path[256];
+	char server_path[128];
 	getcwd(server_path, sizeof(server_path));
 	char root[32] = "/cloud_drive/dist";
 	_root = new char[strlen(server_path) + strlen(root) + 1];
@@ -49,37 +61,34 @@ void HttpConn::init(int client_fd, sockaddr_in& address) {
     int new_option = old_option | O_NONBLOCK;
     fcntl(_client_fd, F_SETFL, new_option);
 
-	_read_buf = new char[READ_BUFFER_SIZE];
-
 	init();
 }
 
 // 内部初始化
 void HttpConn::init() {
-	
-	_check_status = REQUEST_LINE;
-	_linger = false;
 
+	// IO
 	_read_len = 0;
 	_write_len = 0;
 
-	_file_address = nullptr;
-
-	_url = nullptr;
-
+	// request
 	_line_end = 0;
 	_line_begin = 0;
+	_check_status = REQUEST_LINE;
+	_url = nullptr;
+	_content_length = 0;
 
+	// response
+	_file_address = nullptr;
+	memset(_real_file, 0, config::FILENAME_LEN);
+	memset(_content_type, 0, sizeof(_content_type));
+
+	// 
 	_rqs_params = Value();
 	_response_json = Value();
 
-	_content_length = 0;
-
-	// memset(_read_buf, 0, READ_BUFFER_SIZE);
-	memset(_write_buf, 0, WRITE_BUFFER_SIZE);
-	memset(_real_file, 0, FILENAME_LEN);
-
-	memset(_content_type, 0, sizeof(_content_type));
+	improve = false;
+	_linger = false;
 }
 
 // 断开和客户端的连接
@@ -128,22 +137,21 @@ void HttpConn::complete_process() {
 // 将请求 从socket 读取至 缓存
 bool HttpConn::read_request() {
 
-	if(_read_len >= READ_BUFFER_SIZE) {
+	if(_read_len >= config::READ_BUFFER_SIZE) {
 		return false;
 	}
 
 	// ET边缘触发，循环读取数据
 	int tmp = 0;
 	while(true) {
-		tmp = recv(_client_fd, _read_buf + _read_len, READ_BUFFER_SIZE - _read_len, 0);
+		tmp = recv(_client_fd, _read_buf + _read_len, config::READ_BUFFER_SIZE - _read_len, 0);
 		if(tmp <= 0) {
 			if(tmp == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) break;
 			else return false;
 		}
 		_read_len += tmp;
 	}
-	LOG_INFO("%d", _read_len);
-	LOG_INFO("Request message received: \n%s", _read_buf);
+	// LOG_INFO("Request message received: \n%s", _read_buf);
 	return true;
 }
 
@@ -220,6 +228,8 @@ HttpConn::LINE_STATE HttpConn::get_line() {
 
 // 解析请求行 & 请求头 & 请求数据
 HttpConn::HTTP_CODE HttpConn::parse_request_line(char* text) {
+
+	LOG_INFO("Request line received: %s", _read_buf);
 
 	char* tmp = nullptr;
 
@@ -376,7 +386,7 @@ HttpConn::HTTP_CODE HttpConn::do_request() {
 
 	// 直接访问_url对应的文件
 	else {
-		strncpy(_real_file + len, _url, FILENAME_LEN - len - 1);
+		strncpy(_real_file + len, _url, config::FILENAME_LEN - len - 1);
 
 		// 从_file_stat中获取文件信息
 		if(stat(_real_file, &_file_stat) < 0) return NO_RESOURCE;
@@ -445,16 +455,16 @@ inline bool HttpConn::add_response_content(const char* content) {
 // 将单行报文写入缓存中
 bool HttpConn::add_single_line(const char* format, ...) {
 
-	if(_write_len >= WRITE_BUFFER_SIZE) return false;
+	if(_write_len >= config::WRITE_BUFFER_SIZE) return false;
 
 	// 利用可变参数，将format解析后，放入_write_buf缓存中
 	va_list arg_list;
 	va_start(arg_list, format);
-	int len = vsnprintf(_write_buf + _write_len, WRITE_BUFFER_SIZE - _write_len - 1, format, arg_list);
+	int len = vsnprintf(_write_buf + _write_len, config::WRITE_BUFFER_SIZE - _write_len - 1, format, arg_list);
 	va_end(arg_list);
 
 	// 判断缓存是否超出
-	if(len < WRITE_BUFFER_SIZE - _write_len - 1) {
+	if(len < config::WRITE_BUFFER_SIZE - _write_len - 1) {
 		_write_len += len;
 		return true;
 	}
@@ -478,14 +488,16 @@ bool HttpConn::write_response() {
 
 	// 响应文件资源
 	if(_response_type && _file_address && _file_stat.st_size > 0) {
-		ret &= write_single_buffer(_file_address, _file_stat.st_size);
+		if(ret) ret &= write_single_buffer(_file_address, _file_stat.st_size);
 		munmap(_file_address, _file_stat.st_size);
 		_file_address = nullptr;
 	}
 
 	event_modify(_epoll_fd, _client_fd, EPOLLIN);
-	if(ret == true) init();
-	return ret;
+
+	if(!ret || !_linger) return false;
+	init();
+	return true;
 }
 bool HttpConn::write_single_buffer(char* buf, int len) {
 

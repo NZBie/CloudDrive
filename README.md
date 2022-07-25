@@ -1,14 +1,14 @@
-# Mini Web Server
+# CloudDrive
 
-依照TinyWebServer进行重写的项目，主要用于自己学习WebServer基本运作方式。
-
-在原项目基础上添加了大量注释，去除了个性化选择运行方式的功能，对部分代码进行了修改。
+服务器部分主要依照TinyWebServer项目，初衷用于自己学习WebServer基本运作方式。
 
 TinyWebServer: https://github.com/qinguoyi/TinyWebServer
 
-遇到的问题:
+对原项目代码进行重构后，在其上挂载学校工程实践的云盘项目的前端部分，并用C++重写后端部分。
 
-1、处理完来自客户端的EPOLLIN请求后，不能直接回复报文，需要注册并监听到EPOLLOUT事件后才能回复。
+项目遇到的问题:
+
+1、处理完来自客户端的EPOLLIN请求后，不能直接回复报文，需要注册并监听到EPOLLOUT事件后才能回复，不然似乎会一直卡着，不进行下一次请求。
 
 2、回复css资源时，如果content-type设置为text/html，将会导致css无法正常显示，原因不明。
 

@@ -130,7 +130,7 @@ void Utils::add_signal(int sig, void (handler)(int), bool restart) {
 // 信号处理函数
 void Utils::signal_handler(int sig) {
 
-    //为保证函数的可重入性，保留原来的errno
+    // 为保证函数的可重入性，保留原来的errno
     int errno_bak = errno;
     int msg = sig;
     send(_pipe_fd[1], (char *)(&msg), 1, 0);
@@ -143,11 +143,5 @@ void Utils::timer_handler() {
     alarm(_time_slot);
 }
 
-// 出错
-void Utils::show_error(int conn_fd, const char *info) {
-    send(conn_fd, info, strlen(info), 0);
-    close(conn_fd);
-}
-
-int Utils::_epoll_fd = 0;
+int Utils::_epoll_fd = -1;
 int* Utils::_pipe_fd = nullptr;

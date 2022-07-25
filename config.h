@@ -33,7 +33,7 @@ namespace config {
 	const int MAX_TASK_NUM = 16384;
 
 	// 日志
-	const bool LOG_OPEN = true;
+	const bool LOG_OPEN = false;
 	// bool log_mode = 1;
 }
 

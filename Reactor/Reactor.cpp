@@ -106,7 +106,7 @@ void Reactor::event_loop() {
 				if(deal_client_connect() == false) continue;
 			}
 
-			// 接收到 定时器信号
+			// 接收到 信号消息
 			else if((sock_fd == _pipe_fd[0]) && (_events[i].events & EPOLLIN)) {
 				if(deal_with_signal(timeout, server_close) == false) continue;
 			}

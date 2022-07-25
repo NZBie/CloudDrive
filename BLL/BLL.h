@@ -10,6 +10,7 @@
 
 #include "../log/log.h"
 #include "../MySQL_CGI/SqlConnPool.h"
+#include "../config.h"
 
 using Json::Value;
 

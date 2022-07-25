@@ -370,7 +370,7 @@ HttpConn::HTTP_CODE HttpConn::do_request() {
 	strcpy(_real_file, _root);
 	int len = strlen(_root);
 
-	printf("%s\n", _url);
+	// LOG_INFO("%s\n", _url);
 	string url(_url);
 
 	// 数据请求

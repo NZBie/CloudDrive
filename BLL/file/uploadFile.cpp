@@ -1,14 +1,23 @@
 #include "../BLL.h"
 
-bool uploadFile(const Value& params, Value& rpsJson) {
+bool bllOperation::newUploadTask() {
 
-	string token = params["token"].asString();
+
+}
+
+bool bllOperation::uploadPart() {
+	
+}
+
+bool bllOperation::uploadFile() {
+
+	string token = _params["token"].asString();
 	int uid = parse_token(token);
 
 	// 数据库插入操作
-	string parID = params["fid"].asString();
-	string fName = params["fName"].asString();
-	int fSize = params["fSize"].asInt();
+	string parID = _params["fid"].asString();
+	string fName = _params["fName"].asString();
+	int fSize = _params["fSize"].asInt();
 	string extension;
 	for(int i=fName.size()-1;i>=0;i--) {
 		if(fName[i] == '.') {
@@ -32,7 +41,7 @@ bool uploadFile(const Value& params, Value& rpsJson) {
 	strcpy(fid, row[0]);
 
 	// 将文件写入服务器磁盘中
-	long long fData_p = params["fData"].asLargestInt();
+	long long fData_p = _params["fData"].asLargestInt();
 	char** fData = (char**)&fData_p;
 
 	char path[64] = "./users-drive/";
@@ -47,7 +56,7 @@ bool uploadFile(const Value& params, Value& rpsJson) {
 	int x = fwrite(*fData, sizeof(char), fSize, fp);
 	fclose(fp);
 
-	rpsJson["msg"] = "ok";
+	_rpsJson["msg"] = "ok";
 
 	return true;
 }

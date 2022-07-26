@@ -1,8 +1,8 @@
 #include "../BLL.h"
 
-bool getInfo(const Value& params, Value& rpsJson) {
+bool bllOperation::getInfo() {
 	
-	string token = params["token"].asString();
+	string token = _params["token"].asString();
 	int uid = parse_token(token);
 
 	// 数据库查询语句
@@ -21,8 +21,8 @@ bool getInfo(const Value& params, Value& rpsJson) {
 	info["nation"] = string(row[6] ? row[6] : "");
 	info["phone"] = string(row[7] ? row[7] : "");
 
-	rpsJson["info"] = info;
-	rpsJson["msg"] = "ok";
+	_rpsJson["info"] = info;
+	_rpsJson["msg"] = "ok";
 
 	return true;
 }

@@ -14,8 +14,8 @@ const HttpConn::HTTP_MESSAGE HttpConn::http_messages[10] = {
 	{}
 };
 
-HttpConn::HttpConn() {
-	map_bll_init();
+HttpConn::HttpConn():_bll(_rqs_params, _response_json) {
+	
 	_read_buf = new char[config::READ_BUFFER_SIZE];
 	_write_buf = new char[config::WRITE_BUFFER_SIZE];
 };
@@ -374,9 +374,9 @@ HttpConn::HTTP_CODE HttpConn::do_request() {
 	string url(_url);
 
 	// 数据请求
-	if(m_bll.find(url) != m_bll.end()) {
+	if(bllOperation::isExist(url)) {
 
-		if(m_bll[url](_rqs_params, _response_json) == false) {
+		if(_bll.execute(url) == false) {
 			return BAD_REQUEST;
 		}
 

@@ -156,6 +156,8 @@ private:
 	char _real_file[config::FILENAME_LEN];	// 文件资源路径
 	bool _response_type; 			// 响应类型，file or data
 	char _content_type[16];			// 响应体数据类型
+
+	bllOperation _bll;
 };
 
 #endif

@@ -1,12 +1,12 @@
 #include "../BLL.h"
 
-bool newFolder(const Value& params, Value& rpsJson) {
+bool bllOperation::newFolder() {
 	
-	string token = params["token"].asString();
+	string token = _params["token"].asString();
 	int uid = parse_token(token);
 
-	string fid = params["fid"].asString();
-	string fName = params["fName"].asString();
+	string fid = _params["fid"].asString();
+	string fName = _params["fName"].asString();
 
 	time_t now = time(NULL);
 	tm* tm_t = localtime(&now);
@@ -16,7 +16,7 @@ bool newFolder(const Value& params, Value& rpsJson) {
 							fid + "\',\'" + fName + "\'," + to_string(0) + "," + "false" + "," + curTime + "," + curTime + ")";
 	if(execute_insert(folder_insert) == false) return false;
 
-	rpsJson["msg"] = "ok";
+	_rpsJson["msg"] = "ok";
 
 	return true;
 }

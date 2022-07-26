@@ -1,11 +1,11 @@
 #include "../BLL.h"
 
-bool getFileList(const Value& params, Value& rpsJson) {
+bool bllOperation::getFileList() {
 
-	string token = params["token"].asString();
+	string token = _params["token"].asString();
 	int uid = parse_token(token);
 	
-	string fid = params["fid"].asString();
+	string fid = _params["fid"].asString();
 
 	if(fid.size() == 0) {
 		string rootID = "select rootID from info where\'" + to_string(uid) + "\'";
@@ -18,8 +18,8 @@ bool getFileList(const Value& params, Value& rpsJson) {
 	string folder_query = "select * from folder where fid=\'" + fid + "\'";
 	MYSQL_RES* result = execute_query(folder_query);
 	MYSQL_ROW row = mysql_fetch_row(result);
-	rpsJson["fid"] = row[0];
-	rpsJson["fName"] = row[2];
+	_rpsJson["fid"] = row[0];
+	_rpsJson["fName"] = row[2];
 
 	// 当前目录下的文件夹信息
 	string folders_query = "select * from folder where parID=\'" + fid + "\'";
@@ -34,7 +34,7 @@ bool getFileList(const Value& params, Value& rpsJson) {
 		folder["createTime"] = row[6];
 		folder["isFolder"] = true;
 
-		rpsJson["fileList"].append(folder);
+		_rpsJson["fileList"].append(folder);
 	}
 
 	// 当前目录下的文件信息
@@ -51,10 +51,10 @@ bool getFileList(const Value& params, Value& rpsJson) {
 		file["createTime"] = row[7];
 		file["isFolder"] = false;
 
-		rpsJson["fileList"].append(file);
+		_rpsJson["fileList"].append(file);
 	}
 
-	rpsJson["msg"] = "ok";
+	_rpsJson["msg"] = "ok";
 
 	return true;
 }

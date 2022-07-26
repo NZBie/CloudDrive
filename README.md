@@ -23,3 +23,5 @@ TinyWebServer: https://github.com/qinguoyi/TinyWebServer
 7、请求头中的keep-alive属性决定，客户端接下来是否继续发送请求报文。
 
 8、epoll_loop中，应该先判断定时器信号，因为定时器信号的条件很苛刻，必须为pipe中有可读事件。该条件完全包含在客户端可读的条件内。
+
+9、报错“明显调用的表达式前的括号必须具有(指针)函数类型”，在执行类函数的指针时，要指明具体的实例。

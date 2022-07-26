@@ -18,31 +18,49 @@ using Json::Value;
 extern Json::FastWriter fwriter;
 // extern Json::StyledWriter swriter;
 
-typedef bool (*bll)(const Value&, Value&);
-extern std::map <string, bll> m_bll;
+class bllOperation {
+public:
+	bllOperation::bllOperation(const Value& params, Value& rpsJson):
+	_params(params), _rpsJson(rpsJson) {
+		map_bll_init();
+	};
+	~bllOperation() {};
+	static bool isExist(string name);	// 查询是否存在字符串对应的操作
+	bool execute(string name);			// 由字符串转到对应的操作函数，并执行
+	
+private:
+	// map_bll及其初始化
+	void map_bll_init();
+	typedef bool (bllOperation::*bll_func)();
+	static std::map <string, bll_func> m_bll;
 
-// map_bll初始化
-void map_bll_init();
+	// 所有操作声明
+	bool emailVerify();		// 验证邮箱
+	bool doRegister();		// 注册
+	bool doLogin();			// 登录
 
-// 所有操作声明
-bool emailVerify(const Value& params, Value& rpsJson);	// 验证邮箱
-bool doRegister(const Value& params, Value& rpsJson);	// 注册
-bool doLogin(const Value& params, Value& rpsJson);		// 登录
+	bool getInfo();			// 获取用户信息
 
-bool getInfo(const Value& params, Value& rpsJson);		// 获取用户信息
+	bool getFileList();		// 获取文件列表
+	bool newFolder(); 		// 新建文件夹
+	bool deleteFile();		// 删除文件
 
-bool getFileList(const Value& params, Value& rpsJson);	// 获取文件列表
-bool newFolder(const Value& params, Value& rpsJson); 	// 新建文件夹
-bool deleteFile(const Value& params, Value& rpsJson);	// 删除文件
-bool uploadFile(const Value& params, Value& rpsJson);	// 上传文件
+	bool uploadFile();		// 上传文件
+	bool newUploadTask();	// 新建上传任务
+	bool uploadPart();		// 上传文件片段
 
-string generate_token(const string email);				// 生成token
-int parse_token(const string token);					// 解析token
+	string generate_token(const string email);				// 生成token
+	int parse_token(const string token);					// 解析token
 
-// 基本数据库操作
-bool execute_insert(const string sql_insert);
-MYSQL_RES* execute_query(const string sql_query);
+	// 基本数据库操作
+	bool execute_insert(const string sql_insert);
+	MYSQL_RES* execute_query(const string sql_query);
 
-string get_now_dateTime();
+	string get_now_dateTime();
+
+private:
+	const Value& _params;
+	Value& _rpsJson;
+};
 
 #endif

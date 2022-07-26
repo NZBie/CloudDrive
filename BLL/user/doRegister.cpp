@@ -1,11 +1,11 @@
 #include "../BLL.h"
 
-bool doRegister(const Value& params, Value& rpsJson) {
+bool bllOperation::doRegister() {
 
 	// 数据库查询语句
-	string email = fwriter.write(params["email"]);
-	string behalfEmail = fwriter.write(params["behalfEmail"]);
-	string password = fwriter.write(params["password"]);
+	string email = fwriter.write(_params["email"]);
+	string behalfEmail = fwriter.write(_params["behalfEmail"]);
+	string password = fwriter.write(_params["password"]);
 
 	string user_insert = "insert into users (email, password) values(" + 
 							email + "," + password + ")";
@@ -31,7 +31,7 @@ bool doRegister(const Value& params, Value& rpsJson) {
 							uid + "," + email + "," + behalfEmail + "," + (email == behalfEmail ? "\'enterprise\'" : "\'staff\'") + "," + email + "," + fid + ")";
 	execute_insert(info_insert);
 
-	rpsJson["msg"] = "ok";
+	_rpsJson["msg"] = "ok";
 
 	return true;
 }

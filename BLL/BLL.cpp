@@ -17,9 +17,7 @@
 Json::FastWriter fwriter;
 // Json::StyledWriter swriter;
 
-std::map <string, bll> m_bll;
-
-void map_bll_init() {
+void bllOperation::map_bll_init() {
 
 	m_bll.insert({"/user/emailVerify", &emailVerify});
 	m_bll.insert({"/user/doRegister", &doRegister});
@@ -31,9 +29,24 @@ void map_bll_init() {
 	m_bll.insert({"/file/newFolder", &newFolder});
 	m_bll.insert({"/file/deleteFile", &deleteFile});
 	m_bll.insert({"/file/uploadFile", &uploadFile});
+	
+	m_bll.insert({"/file/uploadFile", &uploadFile});
+	m_bll.insert({"/file/newUploadTask", &newUploadTask});
+	m_bll.insert({"/file/uploadPart", &uploadPart});
 }
 
-bool execute_insert(const string sql_insert) {
+bool bllOperation::isExist(string name) {
+
+	return (m_bll.find(name) != m_bll.end());
+}
+
+bool bllOperation::execute(string name) {
+
+	if(!isExist(name)) return false;
+	(this->*m_bll[name])();
+}
+
+bool bllOperation::execute_insert(const string sql_insert) {
 
 	// 从数据库连接池获取连接
 	MYSQL* mysql = SqlConnPool::get_instance()->get_connection();
@@ -51,7 +64,7 @@ bool execute_insert(const string sql_insert) {
 	return true;
 }
 
-MYSQL_RES* execute_query(const string sql_query) {
+MYSQL_RES* bllOperation::execute_query(const string sql_query) {
 
 	// 从数据库连接池获取连接
 	MYSQL* mysql = SqlConnPool::get_instance()->get_connection();
@@ -70,7 +83,7 @@ MYSQL_RES* execute_query(const string sql_query) {
 	return result;
 }
 
-string get_now_dateTime() {
+string bllOperation::get_now_dateTime() {
 
 	time_t now = time(nullptr);
 	tm* tm_t = localtime(&now);

@@ -20,9 +20,9 @@ extern Json::FastWriter fwriter;
 
 class bllOperation {
 public:
-	bllOperation::bllOperation(const Value& params, Value& rpsJson):
+	bllOperation(const Value& params, Value& rpsJson):
 	_params(params), _rpsJson(rpsJson) {
-		map_bll_init();
+		if(m_bll.empty()) map_bll_init();
 	};
 	~bllOperation() {};
 	static bool isExist(string name);	// 查询是否存在字符串对应的操作
@@ -30,7 +30,7 @@ public:
 	
 private:
 	// map_bll及其初始化
-	void map_bll_init();
+	static void map_bll_init();
 	typedef bool (bllOperation::*bll_func)();
 	static std::map <string, bll_func> m_bll;
 
@@ -53,8 +53,9 @@ private:
 	int parse_token(const string token);					// 解析token
 
 	// 基本数据库操作
-	bool execute_insert(const string sql_insert);
-	MYSQL_RES* execute_query(const string sql_query);
+	bool execute_insert(const string sql_insert);			// 插入单条sql语句
+	int execute_insert_returnID(const string sql_insert);	// 插入单条sql语句并返回自增ID
+	MYSQL_RES* execute_query(const string sql_query);		// 单次查询
 
 	string get_now_dateTime();
 

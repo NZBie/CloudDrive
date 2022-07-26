@@ -17,27 +17,29 @@
 Json::FastWriter fwriter;
 // Json::StyledWriter swriter;
 
+std::map <string, bllOperation::bll_func> bllOperation::m_bll;
+
 void bllOperation::map_bll_init() {
 
-	m_bll.insert({"/user/emailVerify", &emailVerify});
-	m_bll.insert({"/user/doRegister", &doRegister});
-	m_bll.insert({"/user/doLogin", &doLogin});
+	m_bll.insert({"/user/emailVerify", &bllOperation::emailVerify});
+	m_bll.insert({"/user/doRegister", &bllOperation::doRegister});
+	m_bll.insert({"/user/doLogin", &bllOperation::doLogin});
 	
-	m_bll.insert({"/user/getInfo", &getInfo});
+	m_bll.insert({"/user/getInfo", &bllOperation::getInfo});
 
-	m_bll.insert({"/file/getFileList", &getFileList});
-	m_bll.insert({"/file/newFolder", &newFolder});
-	m_bll.insert({"/file/deleteFile", &deleteFile});
-	m_bll.insert({"/file/uploadFile", &uploadFile});
+	m_bll.insert({"/file/getFileList", &bllOperation::getFileList});
+	m_bll.insert({"/file/newFolder", &bllOperation::newFolder});
+	m_bll.insert({"/file/deleteFile", &bllOperation::deleteFile});
+	m_bll.insert({"/file/uploadFile", &bllOperation::uploadFile});
 	
-	m_bll.insert({"/file/uploadFile", &uploadFile});
-	m_bll.insert({"/file/newUploadTask", &newUploadTask});
-	m_bll.insert({"/file/uploadPart", &uploadPart});
+	m_bll.insert({"/file/uploadFile", &bllOperation::uploadFile});
+	m_bll.insert({"/file/newUploadTask", &bllOperation::newUploadTask});
+	m_bll.insert({"/file/uploadPart", &bllOperation::uploadPart});
 }
 
 bool bllOperation::isExist(string name) {
 
-	return (m_bll.find(name) != m_bll.end());
+	return (bllOperation::m_bll.find(name) != bllOperation::m_bll.end());
 }
 
 bool bllOperation::execute(string name) {
@@ -62,6 +64,35 @@ bool bllOperation::execute_insert(const string sql_insert) {
 	SqlConnPool::get_instance()->release_connection(mysql);
 
 	return true;
+}
+
+int bllOperation::execute_insert_returnID(const string sql_insert) {
+
+	// 从数据库连接池获取连接
+	MYSQL* mysql = SqlConnPool::get_instance()->get_connection();
+
+	// sql插入语句
+	if(mysql_query(mysql, sql_insert.c_str())) {
+		// 释放连接
+		SqlConnPool::get_instance()->release_connection(mysql);
+		LOG_ERROR("MySQL select error: %s", mysql_error(mysql));
+		return -1;
+	}
+
+	// 获取自增id
+	if(mysql_query(mysql, "SELECT LAST_INSERT_ID()")) {
+		// 释放连接
+		SqlConnPool::get_instance()->release_connection(mysql);
+		LOG_ERROR("MySQL select error: %s", mysql_error(mysql));
+		return -1;
+	}
+	MYSQL_RES *result = mysql_store_result(mysql);
+	
+	// 释放连接
+	SqlConnPool::get_instance()->release_connection(mysql);
+
+	MYSQL_ROW id_row = mysql_fetch_row(result);
+	return atoi(id_row[0]);
 }
 
 MYSQL_RES* bllOperation::execute_query(const string sql_query) {

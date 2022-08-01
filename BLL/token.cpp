@@ -1,10 +1,10 @@
 #include "BLL.h"
 
-string generate_token(const string email) {
+string bllOperation::generate_token(const string email) {
 	return email;
 }
 
-int parse_token(const string token) {
+int bllOperation::parse_token(const string token) {
 
 	string uid_query = "select uid from users where email=\'" + token + "\'";
 	MYSQL_RES* uid_result = execute_query(uid_query);

@@ -45,23 +45,27 @@ private:
 	bool newFolder(); 		// 新建文件夹
 	bool deleteFile();		// 删除文件
 
-	bool uploadFile();		// 上传文件
-	bool newUploadTask();	// 新建上传任务
-	bool uploadPart();		// 上传文件片段
+	// bool uploadFile();		// 上传文件
+	bool newUploadTask();		// 新建上传任务
+	bool queryUploadProgress();	// 查询各分片上传进度
+	bool uploadPart();			// 上传单个分片
 
 	string generate_token(const string email);				// 生成token
 	int parse_token(const string token);					// 解析token
-
-	// 基本数据库操作
-	bool execute_insert(const string sql_insert);			// 插入单条sql语句
-	int execute_insert_returnID(const string sql_insert);	// 插入单条sql语句并返回自增ID
-	MYSQL_RES* execute_query(const string sql_query);		// 单次查询
-
-	string get_now_dateTime();
 
 private:
 	const Value& _params;
 	Value& _rpsJson;
 };
+
+
+// 基本数据库操作
+bool execute_update(const string sql_insert);			// 插入单条sql语句
+bool execute_insert(const string sql_insert);			// 插入单条sql语句
+int execute_insert_returnID(const string sql_insert);	// 插入单条sql语句并返回自增ID
+MYSQL_RES* execute_query(const string sql_query);		// 单次查询
+
+string get_now_dateTime();
+
 
 #endif

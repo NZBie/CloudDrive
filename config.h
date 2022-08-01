@@ -12,13 +12,13 @@ namespace config {
 	const short SERVER_PORT = 9006;
 
 	// 反应堆
-	const int MAX_FD_NUM = 65536;
+	const int MAX_FD_NUM = 30;
 	const int MAX_EVENT_NUM = 8192;
 	const int TIME_SLOT = 5;
 
 	// Http
 	const int FILENAME_LEN = 128;
-	const int READ_BUFFER_SIZE = 1024;
+	const int READ_BUFFER_SIZE = 4000000;
 	const int WRITE_BUFFER_SIZE = 1024;
 
 	// 数据库连接池

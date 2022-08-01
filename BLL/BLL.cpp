@@ -30,10 +30,9 @@ void bllOperation::map_bll_init() {
 	m_bll.insert({"/file/getFileList", &bllOperation::getFileList});
 	m_bll.insert({"/file/newFolder", &bllOperation::newFolder});
 	m_bll.insert({"/file/deleteFile", &bllOperation::deleteFile});
-	m_bll.insert({"/file/uploadFile", &bllOperation::uploadFile});
 	
-	m_bll.insert({"/file/uploadFile", &bllOperation::uploadFile});
 	m_bll.insert({"/file/newUploadTask", &bllOperation::newUploadTask});
+	m_bll.insert({"/file/queryUploadProgress", &bllOperation::queryUploadProgress});
 	m_bll.insert({"/file/uploadPart", &bllOperation::uploadPart});
 }
 
@@ -48,7 +47,25 @@ bool bllOperation::execute(string name) {
 	(this->*m_bll[name])();
 }
 
-bool bllOperation::execute_insert(const string sql_insert) {
+bool execute_update(const string sql_update) {
+
+	// 从数据库连接池获取连接
+	MYSQL* mysql = SqlConnPool::get_instance()->get_connection();
+
+	if(mysql_query(mysql, sql_update.c_str())) {
+		// 释放连接
+		SqlConnPool::get_instance()->release_connection(mysql);
+		LOG_ERROR("MySQL select error: %s", mysql_error(mysql));
+		return false;
+	}
+
+	// 释放连接
+	SqlConnPool::get_instance()->release_connection(mysql);
+
+	return true;
+}
+
+bool execute_insert(const string sql_insert) {
 
 	// 从数据库连接池获取连接
 	MYSQL* mysql = SqlConnPool::get_instance()->get_connection();
@@ -66,7 +83,7 @@ bool bllOperation::execute_insert(const string sql_insert) {
 	return true;
 }
 
-int bllOperation::execute_insert_returnID(const string sql_insert) {
+int execute_insert_returnID(const string sql_insert) {
 
 	// 从数据库连接池获取连接
 	MYSQL* mysql = SqlConnPool::get_instance()->get_connection();
@@ -95,7 +112,7 @@ int bllOperation::execute_insert_returnID(const string sql_insert) {
 	return atoi(id_row[0]);
 }
 
-MYSQL_RES* bllOperation::execute_query(const string sql_query) {
+MYSQL_RES* execute_query(const string sql_query) {
 
 	// 从数据库连接池获取连接
 	MYSQL* mysql = SqlConnPool::get_instance()->get_connection();
@@ -114,7 +131,7 @@ MYSQL_RES* bllOperation::execute_query(const string sql_query) {
 	return result;
 }
 
-string bllOperation::get_now_dateTime() {
+string get_now_dateTime() {
 
 	time_t now = time(nullptr);
 	tm* tm_t = localtime(&now);

@@ -151,7 +151,7 @@ bool HttpConn::read_request() {
 		}
 		_read_len += tmp;
 	}
-	// LOG_INFO("Request message received: \n%s", _read_buf);
+	// printf("Request message received: \n%s\n", _read_buf);
 	return true;
 }
 
@@ -163,12 +163,7 @@ HttpConn::HTTP_CODE HttpConn::parse_message() {
 	char* text = nullptr;
 
 	// 逐行解析
-	while(true) {
-
-		// ?
-		if(!(_check_status == REQUEST_CONTENT && line_state == LINE_OK)) {
-			if((line_state = get_line()) != LINE_OK) break;
-		}
+	while(_check_status == REQUEST_CONTENT || (line_state = get_line()) == LINE_OK) {
 
 		// 从_read_buf中读取一行
 		text = _read_buf + _line_begin;
@@ -194,8 +189,7 @@ HttpConn::HTTP_CODE HttpConn::parse_message() {
 			case REQUEST_CONTENT: {
 				ret = parse_request_content(text);
 				if(ret == GET_REQUEST) return do_request();
-				line_state = LINE_OPEN;
-				break;
+				else return NO_REQUEST;
 			}
 			
 			default: {
@@ -348,7 +342,7 @@ printf("(%d,%d,%d)\n", _read_len, _line_end, _content_length);
 
     if (_read_len >= _line_end + _content_length) {
 
-		// 解析请求体
+		// 解析请求体FormData
         text[_content_length] = '\0';
 		FormDataParser fmdParser(text, _content_length, _boundary, 0);
 		std::vector<FormItem>* data = fmdParser.parse();
@@ -388,7 +382,7 @@ HttpConn::HTTP_CODE HttpConn::do_request() {
 	else {
 		strncpy(_real_file + len, _url, config::FILENAME_LEN - len - 1);
 
-		// 从_file_stat中获取文件信息
+		// 从_real_file文件中获取文件信息
 		if(stat(_real_file, &_file_stat) < 0) return NO_RESOURCE;
 		if(!(_file_stat.st_mode & S_IROTH)) return FORBIDDEN_REQUEST;
 		if(S_ISDIR(_file_stat.st_mode)) return BAD_REQUEST;

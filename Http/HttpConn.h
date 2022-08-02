@@ -98,6 +98,7 @@ private:
 	HTTP_CODE parse_request_headers(char* text);
 	HTTP_CODE parse_request_content(char* text);
 	LINE_STATE get_line();
+	string acl_url_decode(const char* str);	// url解码
 
 	// 写报文
 	bool add_message(HTTP_CODE ret);

@@ -7,8 +7,8 @@ CREATE TABLE CloudDrive.upload
     name            char(32)        NOT NULL,
     md5             char(32)        NOT NULL,
     tot_size        int             NOT NULL,
-    part_num        int             NOT NULL,
-    upload_state    varchar(128)    NOT NULL
+    part_num        int             NOT NULL
+    -- upload_state    varchar(128)    NOT NULL
     
 ) ENGINE=InnoDB;
 

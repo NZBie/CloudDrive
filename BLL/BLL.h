@@ -60,9 +60,10 @@ private:
 
 
 // 基本数据库操作
-bool execute_update(const string sql_insert);			// 插入单条sql语句
 bool execute_insert(const string sql_insert);			// 插入单条sql语句
 int execute_insert_returnID(const string sql_insert);	// 插入单条sql语句并返回自增ID
+bool execute_delete(const string sql_delete);			// 插入单条sql语句
+bool execute_update(const string sql_insert);			// 插入单条sql语句
 MYSQL_RES* execute_query(const string sql_query);		// 单次查询
 
 string get_now_dateTime();

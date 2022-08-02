@@ -47,24 +47,6 @@ bool bllOperation::execute(string name) {
 	(this->*m_bll[name])();
 }
 
-bool execute_update(const string sql_update) {
-
-	// 从数据库连接池获取连接
-	MYSQL* mysql = SqlConnPool::get_instance()->get_connection();
-
-	if(mysql_query(mysql, sql_update.c_str())) {
-		// 释放连接
-		SqlConnPool::get_instance()->release_connection(mysql);
-		LOG_ERROR("MySQL select error: %s", mysql_error(mysql));
-		return false;
-	}
-
-	// 释放连接
-	SqlConnPool::get_instance()->release_connection(mysql);
-
-	return true;
-}
-
 bool execute_insert(const string sql_insert) {
 
 	// 从数据库连接池获取连接
@@ -110,6 +92,42 @@ int execute_insert_returnID(const string sql_insert) {
 
 	MYSQL_ROW id_row = mysql_fetch_row(result);
 	return atoi(id_row[0]);
+}
+
+bool execute_delete(const string sql_delete) {
+
+	// 从数据库连接池获取连接
+	MYSQL* mysql = SqlConnPool::get_instance()->get_connection();
+
+	if(mysql_query(mysql, sql_delete.c_str())) {
+		// 释放连接
+		SqlConnPool::get_instance()->release_connection(mysql);
+		LOG_ERROR("MySQL select error: %s", mysql_error(mysql));
+		return false;
+	}
+
+	// 释放连接
+	SqlConnPool::get_instance()->release_connection(mysql);
+
+	return true;
+}
+
+bool execute_update(const string sql_update) {
+
+	// 从数据库连接池获取连接
+	MYSQL* mysql = SqlConnPool::get_instance()->get_connection();
+
+	if(mysql_query(mysql, sql_update.c_str())) {
+		// 释放连接
+		SqlConnPool::get_instance()->release_connection(mysql);
+		LOG_ERROR("MySQL select error: %s", mysql_error(mysql));
+		return false;
+	}
+
+	// 释放连接
+	SqlConnPool::get_instance()->release_connection(mysql);
+
+	return true;
 }
 
 MYSQL_RES* execute_query(const string sql_query) {

@@ -22,17 +22,12 @@ bool bllOperation::queryUploadProgress() {
 	int id = stoi(_params["id"].asString());
 	FileUploader fileUper(id);
 
+	int part_id = stoi(_params["part_id"].asString());
+
 	// 获取上传信息
-	const unsigned* state = fileUper.get_upload_state();
-	int part_num = fileUper.get_part_num();
+	int sent = fileUper.get_upload_state(part_id);
 
-	// 封装上传信息
-	Value state_Val;
-	for(int i=0;i<part_num;i++) {
-		state_Val.append(state[i]);
-	}
-
-	_rpsJson["state"] = state_Val;
+	_rpsJson["sent"] = sent;
 	_rpsJson["msg"] = "ok";
 
 	return true;
@@ -47,20 +42,23 @@ bool bllOperation::uploadPart() {
 	int part_id = stoi(_params["part_id"].asString());
 	long long fData_p = _params["fData"].asLargestInt();
 	char** fData = (char**)&fData_p;
-	unsigned part_len = stoi(_params["fSize"].asString());
+	int part_len = stoi(_params["fSize"].asString());
 	string md5 = _params["md5"].asString();
 
 	// 上传文件分片
 	fileUper.upload_part(part_id, *fData, part_len, md5);
+	_rpsJson["sent"] = fileUper.get_upload_state(part_id);
 
 	// 合并分片
 	if(fileUper.check_complete()) {
 		int fid = fileUper.insert_file(stoi(_params["folder_id"].asString()));
 		fileUper.unite_parts(fid);
 		fileUper.remove_parts();
+		fileUper.delete_upload();
+		_rpsJson["upload_state"] = "success";
 	}
+	else _rpsJson["upload_state"] = "uploading";
 
-	_rpsJson["sent"] = fileUper.get_upload_state()[part_id];
 	_rpsJson["msg"] = "ok";
 	return true;
 }

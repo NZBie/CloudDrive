@@ -53,7 +53,6 @@ bool bllOperation::getFileList() {
 
 		_rpsJson["fileList"].append(file);
 	}
-	printf("?????\n");
 
 	_rpsJson["msg"] = "ok";
 

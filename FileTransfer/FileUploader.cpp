@@ -4,14 +4,9 @@
 FileUploader::FileUploader(string name, string md5, int tot_size, int part_num):
 _file_md5(md5), _name(name), _tot_size(tot_size), _part_num(part_num) {
 
-	string state = "";
-	for(int i=0;i<part_num;i++) {
-		state += "00000000";
-	}
-	
 	// 将新建的上传任务，存储到mysql
-	string upload_insert = "insert into upload (name, md5, tot_size, part_num, upload_state) value(\'" + 
-							name + "\',\'" + md5 + "\'," + to_string(tot_size) + "," + to_string(part_num) + ",\'" + state + "\')";
+	string upload_insert = "insert into upload (name, md5, tot_size, part_num) value(\'" + 
+							name + "\',\'" + md5 + "\'," + to_string(tot_size) + "," + to_string(part_num) + ")";
 	_id = execute_insert_returnID(upload_insert);
 
 	// 创建临时文件夹
@@ -33,20 +28,28 @@ FileUploader::FileUploader(int id):	_id(id) {
 	_file_md5 = row[2];
 	_tot_size = atoi(row[3]);
 	_part_num = atoi(row[4]);
-	memset(_upload_state, 0, sizeof(_upload_state));
-	
-	// string 转成 十六进制形式的 unsigned
-	for(int i=0;i<_part_num;i++) {
-		for(int j=0;j<8;j++) { 
-			char bitVal_char = row[5][i*8+j];
-			int bitVal = bitVal_char - (bitVal_char < 'a' ? '0' : 'a' - 10);
-			_upload_state[i] = (_upload_state[i] << 4) + bitVal;
-		}
-	}
 };
 
+// 获取上传进度
+int FileUploader::get_upload_state(int part_id) {
+
+	// 临时文件路径
+	char part_path[64] = "./users_drive/uploading/";
+	strcat(strcat(part_path, to_string(_id).c_str()), "/");
+	string part_name = _name + ".part_" + to_string(part_id);
+	strcat(part_path, part_name.c_str());
+
+	// 从临时文件中获取已写大小
+	struct stat info;
+	if(stat(part_path, &info) < 0) return 0;
+	if(!(info.st_mode & S_IROTH)) return 0;
+	if(S_ISDIR(info.st_mode)) return 0;
+
+	return info.st_size;
+}
+
 // 上传单个分片
-bool FileUploader::upload_part(int part_id, char* file_part, unsigned part_len, string md5) {
+bool FileUploader::upload_part(int part_id, char* file_part, int part_len, string md5) {
 
 	// 将文件写入服务器磁盘中
 	char path[64] = "./users_drive/uploading/";
@@ -58,11 +61,6 @@ bool FileUploader::upload_part(int part_id, char* file_part, unsigned part_len, 
 	// 写
 	int written_len = fwrite(file_part, sizeof(char), part_len, fp);
 	fclose(fp);
-
-	// 更新上传进度
-	unsigned new_state = (part_len == written_len ? 0xffffffff : _upload_state[part_id] + written_len);
-	update_state(part_id, new_state);
-	update_info();
 
 	return true;
 }
@@ -156,33 +154,11 @@ int FileUploader::insert_file(int folder_id) {
 	return fid;
 }
 
-// 更新分片上传进度
-inline void FileUploader::update_state(int part_id, unsigned progress) {
-	if(part_id >= _part_num) return;
-	_upload_state[part_id] = progress;
+// 从upload表删除上传信息
+bool FileUploader::delete_upload() {
+	string upload_dlt = "delete from upload where id=" + to_string(_id);
+	return execute_delete(upload_dlt);
 }
-
-// 更新upload表中的信息
-bool FileUploader::update_info() {
-
-	// 将upload_state转成string，便于存入mysql
-	string state_str;
-	for(int i=0;i<_part_num;i++) {
-		// unsigned 以十六进制形式 转 string
-		string num_str;
-		for(int j=0;j<8;j++) {
-			unsigned num = _upload_state[i];
-			int bitVal = num & 0xf;
-			num >>= 4;
-			char bitVal_char = bitVal + (bitVal < 10 ? '0' : 'a' - 10);
-			num_str = bitVal_char + num_str;
-		}
-		state_str += num_str;
-	}
-	
-	string sql_update = "update upload set upload_state=\'" + state_str + "\' where id=\'" + to_string(_id) + "\'";
-	return execute_update(sql_update);
-}				
 
 // 校验MD5码
 inline bool FileUploader::check_MD5(string md5) {
@@ -193,9 +169,12 @@ inline bool FileUploader::check_MD5(string md5) {
 bool FileUploader::check_complete() {
 
 	for(int i=0;i<_part_num;i++) {
-		if(_upload_state[i] != 0xffffffff) return false;
+		// 从临时文件中获取已写大小
+		int part_size = get_upload_state(i);
+		int part_tot = (_tot_size - 1) / _part_num + 1;
+		if(i == _part_num - 1) part_tot = _tot_size - (_part_num - 1) * part_tot;
+		if(part_size < part_tot) return false; 
 	}
 	return true;
 }
-
 

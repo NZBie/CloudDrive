@@ -10,6 +10,3 @@ CREATE TABLE CloudDrive.users
 ) ENGINE=InnoDB;
 
 ALTER TABLE CloudDrive.users AUTO_INCREMENT=10001;
-
-INSERT INTO CloudDrive.users(email, password) 
-VALUES('nzb@qq.com', '123456');

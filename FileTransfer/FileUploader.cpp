@@ -10,7 +10,7 @@ _file_md5(md5), _name(name), _tot_size(tot_size), _part_num(part_num) {
 	_id = execute_insert_returnID(upload_insert);
 
 	// 创建临时文件夹
-	char path[64] = "./users_drive/uploading/";
+	char path[32] = "./users_drive/uploading/";
 	strcat(path, to_string(_id).c_str());
 	int ret = mkdir(path, S_IRWXU);
 	// assert(ret);
@@ -30,18 +30,28 @@ FileUploader::FileUploader(int id):	_id(id) {
 	_part_num = atoi(row[4]);
 };
 
+// 获取分片存放路径
+char* FileUploader::get_part_path(int part_id) {
+
+	// 临时文件路径
+	string part_name = _name + ".part_" + to_string(part_id);
+	char* part_path = new char[part_name.size() + 36];
+	strcpy(part_path, "./users_drive/uploading/");
+	strcat(strcat(strcat(part_path, to_string(_id).c_str()), "/"), part_name.c_str());
+	return part_path;
+}
+
 // 获取上传进度
 int FileUploader::get_upload_state(int part_id) {
 
 	// 临时文件路径
-	char part_path[64] = "./users_drive/uploading/";
-	strcat(strcat(part_path, to_string(_id).c_str()), "/");
-	string part_name = _name + ".part_" + to_string(part_id);
-	strcat(part_path, part_name.c_str());
+	char* part_path = get_part_path(part_id);
 
 	// 从临时文件中获取已写大小
 	struct stat info;
-	if(stat(part_path, &info) < 0) return 0;
+	int ret = stat(part_path, &info);
+	delete[] part_path;
+	if(ret < 0) return 0;
 	if(!(info.st_mode & S_IROTH)) return 0;
 	if(S_ISDIR(info.st_mode)) return 0;
 
@@ -52,10 +62,10 @@ int FileUploader::get_upload_state(int part_id) {
 bool FileUploader::upload_part(int part_id, char* file_part, int part_len, string md5) {
 
 	// 将文件写入服务器磁盘中
-	char path[64] = "./users_drive/uploading/";
-	string part_name = _name + ".part_" + to_string(part_id);
-	strcat(strcat(strcat(path, to_string(_id).c_str()), "/"), part_name.c_str());
+	char* path = get_part_path(part_id);
+
 	FILE* fp = fopen(path, "a");
+	delete[] path;
 	if(fp == nullptr) return false;
 
 	// 写
@@ -69,7 +79,7 @@ bool FileUploader::upload_part(int part_id, char* file_part, int part_len, strin
 bool FileUploader::unite_parts(int fid) {
 
 	// 新建文件夹
-	char file_path[64] = "./users_drive/";
+	char file_path[128] = "./users_drive/";
 	strcat(file_path, to_string(fid).c_str());
 	int ret = mkdir(file_path, S_IRWXU);
 	if(ret == -1) return false;
@@ -79,16 +89,14 @@ bool FileUploader::unite_parts(int fid) {
 	FILE* fp = fopen(file_path, "a");
 	if(fp == nullptr) return false;
 
-	char part_path[64] = "./users_drive/uploading/";
-	strcat(strcat(part_path, to_string(_id).c_str()), "/");
-	int path_len = strlen(part_path);
+	char* part_path = get_part_path(0);
+	int path_len = strlen(part_path) - 1;
 
 	for(int i=0;i<_part_num;i++) {
 
 		// 临时文件路径
 		part_path[path_len] = '\0';
-		string part_name = _name + ".part_" + to_string(i);
-		strcat(part_path, part_name.c_str());
+		strcat(part_path, to_string(i).c_str());
 		
 		// 从_real_file文件中获取文件信息
 		struct stat part_stat;
@@ -104,6 +112,8 @@ bool FileUploader::unite_parts(int fid) {
 		// 写入到最终文件
 		int written_len = fwrite(part_address, sizeof(char), part_stat.st_size, fp);
 	}
+
+	delete[] part_path;
 	fclose(fp);
 	return true;
 }
@@ -112,23 +122,21 @@ bool FileUploader::unite_parts(int fid) {
 bool FileUploader::remove_parts() {
 
 	// 临时文件的路径
-	char part_path[64] = "./users_drive/uploading/";
-	strcat(strcat(part_path, to_string(_id).c_str()), "/");
-	int path_len = strlen(part_path);
+	char* part_path = get_part_path(0);
+	int path_len = strlen(part_path) - 1;
 
 	for(int i=0;i<_part_num;i++) {
 
 		// 临时文件路径
 		part_path[path_len] = '\0';
-		string part_name = _name + ".part_" + to_string(i);
-		strcat(part_path, part_name.c_str());
+		strcat(part_path, to_string(i).c_str());
 		
 		int ret = remove(part_path);
 		if(ret == -1) return false;
 	}
 
 	// 删除文件夹
-	char file_path[64] = "./users_drive/uploading/";
+	char file_path[32] = "./users_drive/uploading/";
 	strcat(file_path, to_string(_id).c_str());
 	int ret = rmdir(file_path);
 	if(ret == -1) return false;

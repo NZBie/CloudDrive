@@ -221,6 +221,50 @@ HttpConn::LINE_STATE HttpConn::get_line() {
 }
 
 // 解析请求行 & 请求头 & 请求数据
+static unsigned char dec_tab[256] = {
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  0,  0,  0,  0,  0,  0,
+		0, 10, 11, 12, 13, 14, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0, 10, 11, 12, 13, 14, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+};
+string HttpConn::acl_url_decode(const char* str) {
+		int len = (int) strlen(str);
+       	string tmp = string(len, ' ');
+
+        int i = 0, pos = 0;
+        for (i = 0; i < len; i++) {
+            if (str[i] != '%')
+                tmp[pos] = str[i];
+            else if (i + 2 >= len) {  /* check boundary */
+                tmp[pos++] = '%';  /* keep it */
+                if (++i >= len)
+                    break;
+                tmp[pos] = str[i];
+                break;
+            } else if (isalnum(str[i + 1]) && isalnum(str[i + 2])) {
+                tmp[pos] = (dec_tab[(unsigned char) str[i + 1]] << 4)
+                           + dec_tab[(unsigned char) str[i + 2]];
+                i += 2;
+            } else
+                tmp[pos] = str[i];
+
+            pos++;
+        }
+        return tmp;
+
+}
 HttpConn::HTTP_CODE HttpConn::parse_request_line(char* text) {
 
 	LOG_INFO("Request line received: %s", _read_buf);
@@ -276,7 +320,8 @@ HttpConn::HTTP_CODE HttpConn::parse_request_line(char* text) {
 			tmp = strpbrk(tmp, "&");
 			if(tmp != nullptr) *(tmp++) = '\0';
 			
-			_rqs_params[param_key] = param_val;
+			_rqs_params[acl_url_decode(param_key)] = acl_url_decode(param_val);
+			printf("(%s,%s)(%s,%s)\n", param_key, acl_url_decode(param_key).c_str(), param_val, acl_url_decode(param_val).c_str());
 		}
 	}
 

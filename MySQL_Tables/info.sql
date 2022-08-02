@@ -7,16 +7,16 @@ CREATE TABLE CloudDrive.info
 	email           varchar(32)     NOT NULL,
 	behalfEmail     varchar(32)     NOT NULL,
 	authority       ENUM("staff", "enterprise") NOT NULL,
-	nickname        char(32)        NOT NULL,
+	nickname        char(64)        NOT NULL,
 	birth           date            NULL,
-	nation          varchar(32)     NULL,
+	nation          varchar(64)     NULL,
 	phone           char(11)        NULL,
-	avatar          varchar(32)     NULL,
-	background      varchar(32)     NULL,
+	avatar          varchar(64)     NULL,
+	background      varchar(64)     NULL,
 	
 	rootID      int             	NOT NULL
 	
-) ENGINE=InnoDB;
+) ENGINE=InnoDB, character set = utf8;
 
 -- INSERT INTO CloudDrive.info(email, behalfEmail, authority, nickname)
 -- VALUES('nzb@cuit.com', 'nzb@qq.com', "enterprise", "nzb");

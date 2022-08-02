@@ -22,6 +22,7 @@ public:
 	string get_file_name() { return _name; };
 	int get_part_num() { return _part_num; };
 	int get_upload_state(int part_id);
+	char* get_part_path(int part_id);
 
 	bool upload_part(int part_id, char* file_part, int part_len, string md5);	// 上传单个分片
 	bool unite_parts(int fid);			// 合并临时文件

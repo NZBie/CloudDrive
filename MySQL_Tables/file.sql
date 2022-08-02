@@ -6,8 +6,8 @@ CREATE TABLE CloudDrive.file
     fID             int             NOT NULL PRIMARY KEY AUTO_INCREMENT,
 	parID           int             NOT NULL,
 
-    fName           varchar(64)     NOT NULL,
-    extension       varchar(8)      NOT NULL,
+    fName           varchar(128)     NOT NULL,
+    extension       varchar(16)      NOT NULL,
     size            int             NOT NULL,
     deleted         bool            NOT NULL,
 
@@ -15,7 +15,7 @@ CREATE TABLE CloudDrive.file
     createTime      datetime        NOT NULL,
     deleteTime      datetime        NULL
 
-) ENGINE=InnoDB;
+) ENGINE=InnoDB, character set = utf8;
 
 ALTER TABLE CloudDrive.file AUTO_INCREMENT=200001;
 

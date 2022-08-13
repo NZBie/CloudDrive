@@ -19,7 +19,7 @@ namespace config {
 	// Http
 	const int FILENAME_LEN = 128;
 	const int READ_BUFFER_SIZE = 4000000;
-	const int WRITE_BUFFER_SIZE = 1024;
+	const int WRITE_BUFFER_SIZE = 10240;
 
 	// 数据库连接池
 	const short _MYSQL_PORT = 3306;
@@ -35,6 +35,12 @@ namespace config {
 	// 日志
 	const bool LOG_OPEN = false;
 	// bool log_mode = 1;
+
+	// 服务器资源目录
+	const char root_path[32] = "./cloud_drive/dist/";
+
+	// 用户云盘存储目录
+	const char drive_path[32] = "./users_drive/";
 }
 
 #endif

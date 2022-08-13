@@ -12,6 +12,7 @@ bool bllOperation::getFileList() {
 		MYSQL_RES* result = execute_query(rootID);
 		MYSQL_ROW row = mysql_fetch_row(result);
 		fid = row[0];
+		if(fid.size() != 6 && fid[0] != '1') return false;
 	}
 
 	// 当前文件夹信息
@@ -20,6 +21,7 @@ bool bllOperation::getFileList() {
 	MYSQL_ROW row = mysql_fetch_row(result);
 	_rpsJson["fid"] = row[0];
 	_rpsJson["fName"] = row[2];
+	_rpsJson["fileList"] = Json::arrayValue;
 
 	// 当前目录下的文件夹信息
 	string folders_query = "select * from folder where parID=\'" + fid + "\'";

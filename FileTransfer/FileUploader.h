@@ -19,6 +19,7 @@ public:
 
 	// 获取基本信息
 	int get_task_id() { return _id; };
+	int get_tot_size() { return _tot_size; }
 	string get_file_name() { return _name; };
 	int get_part_num() { return _part_num; };
 	int get_upload_state(int part_id);

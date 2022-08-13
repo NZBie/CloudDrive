@@ -18,6 +18,12 @@ HttpConn::HttpConn():_bll(_rqs_params, _response_json) {
 	
 	_read_buf = new char[config::READ_BUFFER_SIZE];
 	_write_buf = new char[config::WRITE_BUFFER_SIZE];
+
+	char path[64];
+	strcpy(path, config::drive_path);
+	mkdir(path, S_IRWXU);
+	strcat(path, "uploading");
+	mkdir(path, S_IRWXU);
 };
 
 HttpConn::~HttpConn() {
@@ -84,8 +90,8 @@ void HttpConn::init() {
 	memset(_content_type, 0, sizeof(_content_type));
 
 	// 
-	_rqs_params = Value();
-	_response_json = Value();
+	_rqs_params.clear();
+	_response_json.clear();
 
 	improve = false;
 	_linger = false;
@@ -279,6 +285,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_line(char* text) {
 
 	if(strcmp(method, "GET") == 0) _method = GET;
 	else if(strcmp(method, "POST") == 0) _method = POST;
+	else if(strcmp(method, "OPTIONS") == 0) _method = OPTIONS;
 	else return BAD_REQUEST;
 
 	// 解析version
@@ -321,7 +328,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_line(char* text) {
 			if(tmp != nullptr) *(tmp++) = '\0';
 			
 			_rqs_params[acl_url_decode(param_key)] = acl_url_decode(param_val);
-			printf("(%s,%s)(%s,%s)\n", param_key, acl_url_decode(param_key).c_str(), param_val, acl_url_decode(param_val).c_str());
+			// printf("(%s,%s)(%s,%s)\n", param_key, acl_url_decode(param_key).c_str(), param_val, acl_url_decode(param_val).c_str());
 		}
 	}
 
@@ -406,8 +413,10 @@ printf("(%d,%d,%d)\n", _read_len, _line_end, _content_length);
 // 对解析后的报文进行处理
 HttpConn::HTTP_CODE HttpConn::do_request() {
 
-	strcpy(_real_file, _root);
-	int len = strlen(_root);
+	if(_method == OPTIONS) {
+		// _response_json["msg"] = ;
+		return OK_REQUEST;
+	}
 
 	// LOG_INFO("%s\n", _url);
 	string url(_url);
@@ -425,6 +434,9 @@ HttpConn::HTTP_CODE HttpConn::do_request() {
 
 	// 直接访问_url对应的文件
 	else {
+		strcpy(_real_file, _root);
+		int len = strlen(_root);
+
 		strncpy(_real_file + len, _url, config::FILENAME_LEN - len - 1);
 
 		// 从_real_file文件中获取文件信息
@@ -484,6 +496,7 @@ inline bool HttpConn::add_response_headers(int content_len) {
 	res &= add_single_line("Content-Type:%s\r\n", _content_type);
 	res &= add_single_line("Connection:%s\r\n", (_linger ? "keep-alive" : "close"));
 	res &= add_single_line("Access-Control-Allow-Origin:*\r\n");
+	if(_method == OPTIONS) res &= add_single_line("Allow: OPTIONS, GET, POST\r\n");
 	res &= add_single_line("\r\n");
 	return res;
 }
@@ -562,7 +575,7 @@ bool HttpConn::write_single_buffer(char* buf, int len) {
 		// 发送成功
 		bytes_sent += tmp;
 		if(bytes_sent >= len) {
-			// printf("发送报文：\n%s\n\n", buf);
+			printf("发送报文：\n%s\n\n", buf);
 			return true;
 		}
 	}

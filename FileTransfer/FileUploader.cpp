@@ -23,6 +23,10 @@ FileUploader::FileUploader(int id):	_id(id) {
 	string file_query = "select * from upload where id=" + to_string(id);
 	MYSQL_RES* result = execute_query(file_query);
 	MYSQL_ROW row = mysql_fetch_row(result);
+	if(row == nullptr) {
+		_id = -1;
+		return;
+	}
 
 	_name = row[1];
 	_file_md5 = row[2];
@@ -132,14 +136,14 @@ bool FileUploader::remove_parts() {
 		strcat(part_path, to_string(i).c_str());
 		
 		int ret = remove(part_path);
-		if(ret == -1) return false;
+		// if(ret == -1) return false;
 	}
 
 	// 删除文件夹
 	char file_path[32] = "./users_drive/uploading/";
 	strcat(file_path, to_string(_id).c_str());
 	int ret = rmdir(file_path);
-	if(ret == -1) return false;
+	// if(ret == -1) return false;
 	return true;
 }
 

@@ -45,8 +45,10 @@ private:
 	bool newFolder(); 		// 新建文件夹
 	bool deleteFile();		// 删除文件
 
-	// bool uploadFile();		// 上传文件
+	bool getTaskList();		// 获取任务列表
+
 	bool newUploadTask();		// 新建上传任务
+	bool deleteUploadTask();	// 删除上传任务
 	bool queryUploadProgress();	// 查询各分片上传进度
 	bool uploadPart();			// 上传单个分片
 

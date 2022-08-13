@@ -4,6 +4,9 @@
 // 新建上传任务
 bool bllOperation::newUploadTask() {
 
+	string token = _params["token"].asString();
+	int uid = parse_token(token);
+
 	string name = _params["name"].asString();
 	string md5 = _params["md5"].asString();
 	int tot_size = stoi(_params["tot_size"].asString());
@@ -11,7 +14,37 @@ bool bllOperation::newUploadTask() {
 
 	FileUploader fileUper(name, md5, tot_size, part_num);
 
+	// 插入任务到task表
+	string task_insert = "insert into task (id, uid, fid, name, tot_size) value(" + 
+						to_string(fileUper.get_task_id()) + "," + to_string(uid) + "," + _params["fid"].asString() + ",\'" + fileUper.get_file_name() + "\'," + to_string(fileUper.get_tot_size()) + ")";
+	execute_insert(task_insert);
+	
 	_rpsJson["task_id"] = fileUper.get_task_id();
+	_rpsJson["msg"] = "ok";
+	return true;
+}
+
+// 删除上传任务
+bool bllOperation::deleteUploadTask() {
+
+	string token = _params["token"].asString();
+	int uid = parse_token(token);
+
+	string id = _params["tid"].asString();
+	FileUploader fileUper(stoi(id));
+
+	// 上传任务未完成
+	if(fileUper.get_task_id() != -1) {
+
+		// 删除临时文件
+		fileUper.remove_parts();
+		fileUper.delete_upload();
+	}
+
+	// 从task表中删除任务
+	string task_delete = "delete from task where id=" + id;
+	execute_delete(task_delete);
+
 	_rpsJson["msg"] = "ok";
 	return true;
 }

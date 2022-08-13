@@ -7,6 +7,7 @@
 #include "user/getInfo.cpp"
 
 #include "file/getFileList.cpp"
+#include "file/getTaskList.cpp"
 #include "file/newFolder.cpp"
 #include "file/deleteFile.cpp"
 #include "file/uploadFile.cpp"
@@ -30,8 +31,11 @@ void bllOperation::map_bll_init() {
 	m_bll.insert({"/file/getFileList", &bllOperation::getFileList});
 	m_bll.insert({"/file/newFolder", &bllOperation::newFolder});
 	m_bll.insert({"/file/deleteFile", &bllOperation::deleteFile});
+
+	m_bll.insert({"/file/getTaskList", &bllOperation::getTaskList});
 	
 	m_bll.insert({"/file/newUploadTask", &bllOperation::newUploadTask});
+	m_bll.insert({"/file/deleteUploadTask", &bllOperation::deleteUploadTask});
 	m_bll.insert({"/file/queryUploadProgress", &bllOperation::queryUploadProgress});
 	m_bll.insert({"/file/uploadPart", &bllOperation::uploadPart});
 }

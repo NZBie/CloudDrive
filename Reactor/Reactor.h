@@ -16,7 +16,7 @@
 #include "../MySQL_CGI/SqlConnPool.h"
 #include "../Http/HttpConn.h"
 #include "../ThreadPool/ThreadPool.h"
-#include "../log/log.h"
+#include "../Log/Log.h"
 #include "../Timer/ListTimer.h"
 #include "../config.h"
 

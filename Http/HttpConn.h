@@ -19,7 +19,7 @@
 
 #include <jsoncpp/json/json.h>
 
-#include "../log/log.h"
+#include "../Log/Log.h"
 #include "../MySQL_CGI/SqlConnPool.h"
 #include "../BLL/BLL.h"
 #include "FormData/FormDataParser.h"

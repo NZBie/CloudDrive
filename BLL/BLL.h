@@ -8,7 +8,7 @@
 #include <ctime>
 #include <map>
 
-#include "../log/log.h"
+#include "../Log/Log.h"
 #include "../MySQL_CGI/SqlConnPool.h"
 #include "../config.h"
 

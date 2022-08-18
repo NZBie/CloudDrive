@@ -390,7 +390,7 @@ HttpConn::HTTP_CODE HttpConn::parse_request_headers(char* text) {
 }
 HttpConn::HTTP_CODE HttpConn::parse_request_content(char* text) {
 
-printf("(%d,%d,%d)\n", _read_len, _line_end, _content_length);
+// printf("(%d,%d,%d)\n", _read_len, _line_end, _content_length);
 
     if (_read_len >= _line_end + _content_length) {
 
@@ -575,7 +575,7 @@ bool HttpConn::write_single_buffer(char* buf, int len) {
 		// 发送成功
 		bytes_sent += tmp;
 		if(bytes_sent >= len) {
-			printf("发送报文：\n%s\n\n", buf);
+			// printf("发送报文：\n%s\n\n", buf);
 			return true;
 		}
 	}
